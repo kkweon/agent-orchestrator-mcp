@@ -80,9 +80,20 @@ export class AgentManager {
     const model = params.model || process.env.GEMINI_MODEL || "auto";
     const executable = params.executablePath || "gemini";
     
-    // 3. Inject Inception Prompt (Brain Bootstrapping)
-    // We send this as input to the running Gemini CLI.
-    const inceptionPrompt = `
+    // Construct args
+    let args = params.args || [];
+    const argsStr = args.join(" ");
+    
+    let cmd = "";
+    
+    if (params.executablePath) {
+        // If overriding executable (e.g. for testing), do not append model/args/prompt
+        // Just run the executable as is.
+        cmd = executable;
+    } else {
+        // Normal Gemini CLI execution
+        // 3. Inject Inception Prompt (Brain Bootstrapping)
+        const inceptionPrompt = `
 You are a specialized sub-agent with ID "${id}" and Role "${params.role}".
 Your goal is to autonomously process tasks from the orchestrator.
 
@@ -96,17 +107,13 @@ PROTOCOL:
 Start your loop now.
 `.trim();
 
-    // Write prompt to file to avoid escaping issues and race conditions
-    const inceptionPath = path.join(agentDir, "inception.txt");
-    await fs.writeFile(inceptionPath, inceptionPrompt);
-
-    // Construct args
-    let args = params.args || [];
-    const argsStr = args.join(" ");
-    
-    // Pass prompt as an argument using cat
-    // This assumes a unix-like environment (which tmux implies)
-    const cmd = `${executable} -m ${model} ${argsStr} "$(cat '${inceptionPath}')"`;
+        // Write prompt to file to avoid escaping issues and race conditions
+        const inceptionPath = path.join(agentDir, "inception.txt");
+        await fs.writeFile(inceptionPath, inceptionPrompt);
+        
+        // Pass prompt as an argument using cat
+        cmd = `${executable} -m ${model} ${argsStr} "$(cat '${inceptionPath}')"`;
+    }
     
     // We assume 'gemini' is in the PATH.
     await tmux.sendKeys(pane.paneId, cmd);
