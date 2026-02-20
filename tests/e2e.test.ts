@@ -41,8 +41,9 @@ describe('E2E with Mock Gemini', () => {
     });
 
     it('should spawn a mock agent and process a task', async () => {
-        // We use npx ts-node to run the mock directly from source
-        const mockCommand = `npx ts-node ${path.join(WORKSPACE_ROOT, 'tests', 'mocks', 'mock-gemini.ts')}`;
+        // Use node to run the JS mock directly (no ts-node dependency issues)
+        const mockScript = path.join(WORKSPACE_ROOT, 'tests', 'mocks', 'mock-gemini.js');
+        const mockCommand = `node ${mockScript}`;
 
         console.log("Spawning Agent with Mock Command:", mockCommand);
 
