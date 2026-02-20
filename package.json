@@ -1,6 +1,6 @@
 {
   "name": "@kkweon/agent-orchestrator-mcp",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Agent Orchestrator MCP Server for tmux-based sub-agents",
   "repository": {
     "type": "git",

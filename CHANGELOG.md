@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.0.0...v1.0.1) (2026-02-20)
+
+
+### Bug Fixes
+
+* update README with usage instructions ([2363a3c](https://github.com/kkweon/agent-orchestrator-mcp/commit/2363a3c29ce8eb4eb8c1ff1e1ad050eeefcd45d2))
+
 # 1.0.0 (2026-02-20)
 
 
