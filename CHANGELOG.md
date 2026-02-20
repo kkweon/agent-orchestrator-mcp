@@ -1,3 +1,10 @@
+## [1.1.2](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.1.1...v1.1.2) (2026-02-20)
+
+
+### Bug Fixes
+
+* make npx command explicit and ensure executable permissions ([e31cef4](https://github.com/kkweon/agent-orchestrator-mcp/commit/e31cef4a1d5ad471897fb9c00810eb53dc121478))
+
 ## [1.1.1](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.1.0...v1.1.1) (2026-02-20)
 
 
