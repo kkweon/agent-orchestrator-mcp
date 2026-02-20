@@ -22,7 +22,17 @@ Before running this server, ensure you have the following installed on your syst
 
 ## Installation & Usage
 
-You can run this MCP server directly using `npx`:
+### 1. Install as Gemini Extension
+
+The easiest way to use this orchestrator is to link it directly to your Gemini CLI:
+
+```bash
+gemini extension link https://github.com/kkweon/agent-orchestrator-mcp
+```
+
+### 2. Standalone Execution (via npx)
+
+You can also run the MCP server directly using `npx`, which is useful for testing or manual configuration:
 
 ```bash
 npx @kkweon/agent-orchestrator-mcp
@@ -30,7 +40,7 @@ npx @kkweon/agent-orchestrator-mcp
 
 ### Configuration (gemini-extension.json)
 
-To use this with Gemini CLI, add it to your extension configuration:
+If you need to configure it manually in your `gemini-extension.json`:
 
 ```json
 {
