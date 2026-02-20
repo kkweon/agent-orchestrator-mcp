@@ -1,3 +1,16 @@
+## [1.1.7](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.1.6...v1.1.7) (2026-02-20)
+
+
+### Bug Fixes
+
+* add debug logging to mock gemini script to diagnose e2e failure ([613e89b](https://github.com/kkweon/agent-orchestrator-mcp/commit/613e89b195510bb354a48f85c2923de813f42975))
+* conditionally skip args injection for mock execution to prevent failures ([310246c](https://github.com/kkweon/agent-orchestrator-mcp/commit/310246cf4b7299a0dcaa94c628d81e4b4ade730e))
+* convert mock gemini script to ESM to resolve execution error ([98d0ce0](https://github.com/kkweon/agent-orchestrator-mcp/commit/98d0ce0305ecb28c6e9ff8bb0749960a836d52af))
+* pass inception prompt as command argument instead of typing it ([0a2420e](https://github.com/kkweon/agent-orchestrator-mcp/commit/0a2420e7fb117c644e9c3eee8356c56d6bfbed96))
+* pass workspace root explicitly to mock script to avoid path mismatch in CI ([e37475b](https://github.com/kkweon/agent-orchestrator-mcp/commit/e37475b6d456724bd0d60c6ed56cf4ef46102714))
+* set larger tmux session size to prevent split failures in CI ([5309fd2](https://github.com/kkweon/agent-orchestrator-mcp/commit/5309fd21dd63dc4a8a4d36493f1256c5acaf702d))
+* use -i flag for race-condition-free inception prompt injection ([c6d380a](https://github.com/kkweon/agent-orchestrator-mcp/commit/c6d380afa6230ec63bebc64ab4ac7652acce8577))
+
 ## [1.1.6](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.1.5...v1.1.6) (2026-02-20)
 
 
