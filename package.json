@@ -21,7 +21,7 @@
     "provenance": true
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && chmod +x dist/index.js",
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
     "test": "NODE_OPTIONS='--experimental-vm-modules' jest",
