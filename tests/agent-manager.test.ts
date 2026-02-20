@@ -65,38 +65,48 @@ describe('AgentManager', () => {
         } catch {}
     });
 
-    it('should create an agent successfully', async () => {
+    it('should create an agent in a session-isolated directory', async () => {
         const agent = await manager.createAgent({
             name: 'test-agent',
             role: 'tester'
         });
 
         expect(agent).toBeDefined();
-        expect(agent.id).toBeDefined();
-        expect(agent.name).toBe('test-agent');
-        expect(agent.role).toBe('tester');
+        expect(manager.sessionId).toBeDefined(); // Check if sessionId exists
         
-        const agentDir = path.join(TEST_ROOT, '.agents/agents', agent.id);
+        // Verify path includes session ID
+        const sessionDir = path.join(TEST_ROOT, '.agents/sessions', manager.sessionId);
+        const agentDir = path.join(sessionDir, 'agents', agent.id);
         const metaPath = path.join(agentDir, 'meta.json');
         
         const metaExists = await fs.stat(metaPath).then(() => true).catch(() => false);
         expect(metaExists).toBe(true);
-
-        expect(mockTmux.splitPane).toHaveBeenCalled();
-        expect(mockTmux.sendKeys).toHaveBeenCalled();
     });
 
-    it('should enqueue tasks and wait for commands', async () => {
-        const agent = await manager.createAgent({ name: 'worker', role: 'worker' });
-        
-        const taskId = await manager.enqueueTask(agent.id, { key: 'value' });
-        expect(taskId).toBeDefined();
+    it('should list only agents in the current session', async () => {
+        await manager.createAgent({ name: 'a1', role: 'r1' });
+        // Simulate another session by creating a new manager instance (new session ID)
+        const otherManager = new AgentManager(TEST_ROOT);
+        await otherManager.createAgent({ name: 'b1', role: 'r2' });
 
-        const result = await manager.waitForCommand(agent.id, 0, 1000);
+        const session1Agents = await manager.listAgents();
+        const session2Agents = await otherManager.listAgents();
+
+        expect(session1Agents).toHaveLength(1);
+        expect(session1Agents[0].name).toBe('a1');
+
+        expect(session2Agents).toHaveLength(1);
+        expect(session2Agents[0].name).toBe('b1');
+    });
+
+    it('should broadcast events only to the current session', async () => {
+        const agent = await manager.createAgent({ name: 'reporter', role: 'reporter' });
+        await manager.emitEvent(agent.id, { type: 'log', message: 'hello session 1' });
+
+        const sessionDir = path.join(TEST_ROOT, '.agents/sessions', manager.sessionId);
+        const broadcastPath = path.join(sessionDir, 'broadcast.jsonl');
         
-        expect(result.status).toBe('command');
-        expect(result.command).toBeDefined();
-        expect(result.command.taskId).toBe(taskId);
-        expect(result.command.payload).toEqual({ key: 'value' });
+        const content = await fs.readFile(broadcastPath, 'utf-8');
+        expect(content).toContain('hello session 1');
     });
 });

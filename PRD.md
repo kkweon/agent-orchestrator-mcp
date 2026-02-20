@@ -8,6 +8,7 @@
 - 에이전트별 FIFO 작업 큐, 1개씩 실행(단일 실행), soft cancel
 - 서브에이전트 자율 루프: wait_for_command(timeout) 반복 호출(무한 블록 금지)
 - 이벤트/아티팩트 저장: outbox + run-level broadcast(JSONL)
+- **세션 격리(Session Isolation):** 각 실행 세션별로 독립적인 작업 공간 및 브로드캐스트 제공
 
 ### Out-of-scope (v1)
 - tmux 없는 환경에서의 네이티브 실행(추후 백엔드 플러그인으로 확장)
@@ -56,6 +57,11 @@
 ### 3.7 Gemini CLI MCP 권한 분리(권장 요구사항)
 서브에이전트가 “마스터용 도구(에이전트 생성/삭제 등)”를 실수로 호출하지 않도록, Gemini CLI의 서버 설정에서 includeTools/excludeTools를 활용해 서브에이전트가 접근 가능한 도구를 제한하는 구성을 지원해야 한다. (예: 서브에이전트는 wait_for_command, emit_event만 allowlist)
 
+### 3.8 세션 격리(Session Isolation) — 신규 추가
+- R-S1: MCP 서버 구동 시 고유한 `session_id` (UUID)를 생성한다.
+- R-S2: 모든 에이전트 데이터와 브로드캐스트 로그는 `.agents/sessions/<session_id>/` 하위에 격리하여 저장한다.
+- R-S3: 서로 다른 세션(프로젝트)의 에이전트는 파일 시스템 레벨에서 분리되어 상호 간섭하지 않는다.
+
 ## 4) 비기능 요구사항(안정성/보안/운영)
 Gemini CLI는 Stdio/SSE/Streamable HTTP 트랜스포트를 지원하므로, v1은 로컬 tmux 제어에 적합한 stdio를 기본으로 한다. stdio MCP 서버는 stdout에 MCP 메시지 외 내용을 출력하면 안 되며(stderr 로깅은 허용), 이 규칙을 위반하면 통신이 깨지므로 “로깅은 stderr/파일”을 필수 요구사항으로 둔다. [1]
 
@@ -75,12 +81,12 @@ Gemini CLI는 Stdio/SSE/Streamable HTTP 트랜스포트를 지원하므로, v1�
 ## 5) 데이터/도구(API) 명세 + 수용 기준
 Gemini CLI는 MCP 리소스를 @ 문법으로 참조하면 resources/read를 호출해 대화 컨텍스트로 주입할 수 있으므로, outbox/broadcast tail을 Resources로도 제공하는 것을 권장한다.
 
-### 5.1 파일 구조(필수)
-- .agents/agents/<agent_id>/meta.json
-- .agents/agents/<agent_id>/inbox.jsonl
-- .agents/agents/<agent_id>/outbox.jsonl
-- .agents/run/<run_id>/broadcast.jsonl
-- .agents/agents/<agent_id>/artifacts/
+### 5.1 파일 구조(필수) — 격리 구조 적용
+- .agents/sessions/<session_id>/agents/<agent_id>/meta.json
+- .agents/sessions/<session_id>/agents/<agent_id>/inbox.jsonl
+- .agents/sessions/<session_id>/agents/<agent_id>/outbox.jsonl
+- .agents/sessions/<session_id>/broadcast.jsonl
+- .agents/sessions/<session_id>/agents/<agent_id>/artifacts/
 
 ### 5.2 Tools (권장 최소)
 오케스트레이터(마스터)용

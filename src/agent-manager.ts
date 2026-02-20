@@ -3,30 +3,34 @@ import * as tmux from "./tmux.js";
 import { randomUUID } from "crypto";
 import fs from "fs/promises";
 import path from "path";
-import { fileURLToPath } from "url";
 
 // Helper to get workspace root
-// Assuming we run from workspace root or standard location
 const AGENTS_DIR = ".agents";
 
 export class AgentManager {
   private workspaceRoot: string;
+  public sessionId: string; // Expose sessionId for tests
 
   constructor(workspaceRoot: string = process.cwd()) {
     this.workspaceRoot = workspaceRoot;
+    this.sessionId = randomUUID(); // Generate unique session ID on startup
+  }
+
+  private getSessionDir(): string {
+    return path.join(this.workspaceRoot, AGENTS_DIR, "sessions", this.sessionId);
   }
 
   private getAgentDir(agentId: string): string {
-    return path.join(this.workspaceRoot, AGENTS_DIR, "agents", agentId);
+    return path.join(this.getSessionDir(), "agents", agentId);
   }
 
-  private async ensureAgentsDir() {
-    await fs.mkdir(path.join(this.workspaceRoot, AGENTS_DIR, "agents"), { recursive: true });
-    await fs.mkdir(path.join(this.workspaceRoot, AGENTS_DIR, "run"), { recursive: true });
+  private async ensureSessionDir() {
+    await fs.mkdir(path.join(this.getSessionDir(), "agents"), { recursive: true });
+    // broadcast.jsonl will be in getSessionDir()
   }
 
   async createAgent(params: CreateAgentParams): Promise<Agent> {
-    await this.ensureAgentsDir();
+    await this.ensureSessionDir();
     const id = randomUUID();
     const agentDir = this.getAgentDir(id);
     await fs.mkdir(agentDir, { recursive: true });
@@ -41,10 +45,7 @@ export class AgentManager {
       try {
          context = await tmux.createTmuxSession("openclaw-agents");
       } catch (e) {
-         // Fallback if we can't create session (e.g. strict environment), 
-         // but for this PRD we assume tmux is available.
          console.error("Warning: Could not determine tmux context", e);
-         // proceed anyway? No, createAgent needs tmux.
          throw e;
       }
     }
@@ -66,20 +67,18 @@ export class AgentManager {
     await fs.writeFile(path.join(agentDir, "meta.json"), JSON.stringify(agent, null, 2));
 
     // Bootstrap Sub-agent
-    // 1. Export ID
+    // Inject Session ID so the agent knows where to look/write
     await tmux.sendKeys(pane.paneId, `export AGENT_ID=${id}`);
-    // 2. Start Agent Loop (Placeholder: just echo for now, or run a dummy loop)
-    // The user will provide the actual instruction in the task, but we need the loop running.
-    // Ideally we run `openclaw loop` or similar. 
-    // For now: just echo.
-    await tmux.sendKeys(pane.paneId, `echo "Agent ${id} ready. Run your agent loop here."`);
+    await tmux.sendKeys(pane.paneId, `export AGENT_SESSION_ID=${this.sessionId}`); // New env var
+    await tmux.sendKeys(pane.paneId, `echo "Agent ${id} ready in Session ${this.sessionId}. Run your agent loop here."`);
 
     return agent;
   }
 
   async listAgents(): Promise<Agent[]> {
-    await this.ensureAgentsDir();
-    const agentsDir = path.join(this.workspaceRoot, AGENTS_DIR, "agents");
+    await this.ensureSessionDir();
+    // Only list agents in the current session
+    const agentsDir = path.join(this.getSessionDir(), "agents");
     try {
         const dirs = await fs.readdir(agentsDir);
         const agents: Agent[] = [];
@@ -107,10 +106,9 @@ export class AgentManager {
     } catch (e) {
         // ignore
     }
-    // Option: delete dir or archive it? PRD says delete agent. 
-    // Usually better to move to archive, but for now strictly delete implies cleanup?
-    // Let's keep the dir for history or delete it. PRD is silent on artifacts cleanup.
-    // I'll leave the files for debugging.
+    // We might want to remove the dir, or keep it for history. 
+    // For session isolation, maybe we can delete it to keep it clean.
+    // Let's keep it for now as per previous logic.
   }
 
   async enqueueTask(agentId: string, taskPayload: any): Promise<string> {
@@ -122,6 +120,13 @@ export class AgentManager {
         payload: taskPayload,
         timestamp: Date.now()
     };
+    
+    // Check if agent dir exists (validating agent belongs to this session)
+    try {
+        await fs.access(agentDir);
+    } catch {
+        throw new Error(`Agent ${agentId} not found in session ${this.sessionId}`);
+    }
     
     await fs.appendFile(path.join(agentDir, "inbox.jsonl"), JSON.stringify(taskEvent) + "\n");
     return taskId;
@@ -162,7 +167,7 @@ export class AgentManager {
   async emitEvent(agentId: string, event: any): Promise<void> {
     const agentDir = this.getAgentDir(agentId);
     const outboxPath = path.join(agentDir, "outbox.jsonl");
-    const broadcastPath = path.join(this.workspaceRoot, AGENTS_DIR, "run", "broadcast.jsonl");
+    const broadcastPath = path.join(this.getSessionDir(), "broadcast.jsonl");
     
     const entry = {
         ...event,
@@ -172,7 +177,7 @@ export class AgentManager {
     
     const line = JSON.stringify(entry) + "\n";
     await fs.appendFile(outboxPath, line);
-    // Also append to global broadcast
-    await fs.appendFile(broadcastPath, line); // simple append, race condition possible but acceptable for v1
+    // Also append to session-scoped broadcast
+    await fs.appendFile(broadcastPath, line);
   }
 }
