@@ -5,6 +5,14 @@ import path from 'path';
 // NOTE: Use passed argument for workspace root if available, else CWD
 const WORKSPACE_ROOT = process.argv[2] || process.cwd(); 
 
+// Debug logging
+const debugPath = path.join(WORKSPACE_ROOT, 'mock_debug.log');
+fs.writeFileSync(debugPath, `Started at ${new Date().toISOString()}\n`);
+fs.appendFileSync(debugPath, `CWD: ${process.cwd()}\n`);
+fs.appendFileSync(debugPath, `ARGV: ${JSON.stringify(process.argv)}\n`);
+fs.appendFileSync(debugPath, `ENV AGENT_ID: ${process.env.AGENT_ID}\n`);
+fs.appendFileSync(debugPath, `ENV SESSION_ID: ${process.env.AGENT_SESSION_ID}\n`);
+
 // Use AGENT_ID env var if present
 const AGENT_ID = process.env.AGENT_ID;
 const SESSION_ID = process.env.AGENT_SESSION_ID;

@@ -41,11 +41,13 @@ describe('E2E with Mock Gemini', () => {
     });
 
     it('should spawn a mock agent and process a task', async () => {
+        // Use current node executable path to avoid PATH issues in tmux
+        const nodePath = process.execPath;
         // Use node to run the JS mock directly (no ts-node dependency issues)
         // Use absolute path for reliability
         const mockScript = path.resolve(WORKSPACE_ROOT, 'tests/mocks/mock-gemini.js');
         // Pass WORKSPACE_ROOT as argument to ensure paths align even if CWD differs in tmux
-        const mockCommand = `node "${mockScript}" "${WORKSPACE_ROOT}"`;
+        const mockCommand = `"${nodePath}" "${mockScript}" "${WORKSPACE_ROOT}"`;
 
         console.log("Spawning Agent with Mock Command:", mockCommand);
 
@@ -64,6 +66,18 @@ describe('E2E with Mock Gemini', () => {
         // 1. Wait for Agent Ready
         console.log("Waiting for agent_ready...");
         const ready = await waitForLog(outboxPath, '"agent_ready"');
+        if (!ready) {
+             console.error("Agent Ready Timeout!");
+             try {
+                 const debugLog = await fs.readFile(path.join(WORKSPACE_ROOT, 'mock_debug.log'), 'utf-8');
+                 console.error("Mock Debug Log:", debugLog);
+             } catch (e) {
+                 console.error("Mock Debug Log not found!");
+             }
+             
+             // Capture tmux pane if possible (need pane ID from agent meta)
+             // But we can't easily get it here without parsing meta.json again.
+        }
         expect(ready).toBe(true);
 
         // 2. Enqueue Task
