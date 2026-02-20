@@ -96,6 +96,10 @@ export class AgentManager {
     // We assume 'gemini' is in the PATH.
     await tmux.sendKeys(pane.paneId, cmd);
 
+    // Wait for Gemini CLI to initialize (3 seconds)
+    // This prevents the inception prompt from being typed before the CLI is ready.
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
     // 3. Inject Inception Prompt (Brain Bootstrapping)
     // We send this as input to the running Gemini CLI.
     const inceptionPrompt = `
