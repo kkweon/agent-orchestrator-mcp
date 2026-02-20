@@ -1,3 +1,10 @@
+## [1.0.5](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.0.4...v1.0.5) (2026-02-20)
+
+
+### Bug Fixes
+
+* rename mcp server to tmux-agent-orchestrator to avoid collisions ([720882e](https://github.com/kkweon/agent-orchestrator-mcp/commit/720882e549dc5850aa05fd3fa9c9ddd8bb73365e))
+
 ## [1.0.4](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.0.3...v1.0.4) (2026-02-20)
 
 
