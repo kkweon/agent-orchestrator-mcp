@@ -74,7 +74,10 @@ export async function sendKeys(paneId: string, keys: string): Promise<void> {
   // Use single quotes to prevent the host shell from expanding variables (like $ or *)
   // We must escape existing single quotes in the command.
   const safeKeys = keys.replace(/'/g, "'\\''");
+  // Add a small delay to ensure the shell prompt is ready.
+  // This can help in environments where shell startup is slow.
   await execAsync(`tmux send-keys -t ${paneId} '${safeKeys}' Enter`);
+  await new Promise(r => setTimeout(r, 100)); // 100ms delay
 }
 
 export async function capturePane(paneId: string, lines = 100): Promise<string> {
