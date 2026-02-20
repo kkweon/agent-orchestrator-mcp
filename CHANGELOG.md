@@ -1,3 +1,10 @@
+## [1.0.2](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.0.1...v1.0.2) (2026-02-20)
+
+
+### Bug Fixes
+
+* document tmux prerequisite ([0cd2647](https://github.com/kkweon/agent-orchestrator-mcp/commit/0cd26479f71c262e4e826c194953cda8a0d3346b))
+
 ## [1.0.1](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.0.0...v1.0.1) (2026-02-20)
 
 
