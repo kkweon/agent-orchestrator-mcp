@@ -1,3 +1,10 @@
+## [1.1.4](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.1.3...v1.1.4) (2026-02-20)
+
+
+### Bug Fixes
+
+* switch back to npx with quiet flag for mcp execution ([245f1eb](https://github.com/kkweon/agent-orchestrator-mcp/commit/245f1eb964ea9e0bd337633644c72e28ef8dc9fb))
+
 ## [1.1.3](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.1.2...v1.1.3) (2026-02-20)
 
 
