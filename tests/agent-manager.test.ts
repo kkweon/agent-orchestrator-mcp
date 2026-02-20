@@ -72,21 +72,14 @@ describe('AgentManager', () => {
             expect.stringContaining('export AGENT_ID=')
         );
 
-        // Verify CLI launch command
-        // Note: The spaces/formatting in sendKeys calls might vary depending on impl (args joining).
-        // Let's inspect the actual call in error if it fails, or match partially.
-        // The implementation does: const cmd = `${executable} -m ${model} ${argsStr}`;
-        // argsStr is empty string if not provided. So "gemini -m my-custom-model ".
-        
+        // Verify CLI launch command includes prompt injection via file
         expect(mockTmux.sendKeys).toHaveBeenCalledWith(
             expect.stringContaining('test-pane-new'),
-            expect.stringMatching(/gemini -m my-custom-model/)
+            expect.stringMatching(/gemini -m my-custom-model.*cat.*inception\.txt/)
         );
 
-        // Verify Inception Prompt injection
-        expect(mockTmux.sendKeys).toHaveBeenCalledWith(
-            expect.stringContaining('test-pane-new'),
-            expect.stringContaining('You are a specialized sub-agent')
-        );
+        // We no longer send the prompt directly via sendKeys
+        // so we don't expect the prompt text in sendKeys calls
+
     });
 });
