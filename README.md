@@ -1,31 +1,35 @@
 # Agent Orchestrator MCP Server
 
-This is an MCP (Model Context Protocol) server that enables a "Master" agent (e.g., Gemini CLI) to orchestrate multiple sub-agents within `tmux` panes.
+A **Model Context Protocol (MCP)** server that enables a master Gemini CLI agent to spawn, orchestrate, and manage multiple sub-agents within **tmux** sessions.
+
+Designed for [OpenClaw](https://github.com/openclaw/openclaw) and Gemini CLI environments.
 
 ## Features
 
-- **Tmux Integration**: Automatically splits the current tmux window to create panes for sub-agents.
-- **Agent Management**: Create, list, and delete sub-agents.
-- **Task Orchestration**: Enqueue tasks for specific agents.
-- **Inter-Agent Communication**: Agents can emit events and poll for commands.
+- **Tmux-based Isolation**: Each sub-agent runs in its own dedicated tmux pane.
+- **Session Isolation**: Complete separation of workspaces and event logs per execution session.
+- **Bi-directional Communication**: Master agent can send tasks; Sub-agents emit events (logs, results).
+- **Auto-Inception**: Sub-agents are automatically prompted with their role and protocol upon startup.
+- **Native Gemini CLI**: Sub-agents run actual `gemini` CLI instances with configurable models.
 
-## Installation
+## Installation & Usage
+
+You can run this MCP server directly using `npx`:
 
 ```bash
-npm install -g @kkweon/agent-orchestrator-mcp
+npx @kkweon/agent-orchestrator-mcp
 ```
 
-## Configuration
+### Configuration (gemini-extension.json)
 
-Add this server to your MCP client configuration (e.g., `gemini-cli`'s `settings.json` or `mcpServers` config).
+To use this with Gemini CLI, add it to your extension configuration:
 
 ```json
 {
   "mcpServers": {
-    "agent-orchestrator": {
-      "command": "agent-orchestrator-mcp",
-      "args": [],
-      "env": {}
+    "orchestrator": {
+      "command": "npx",
+      "args": ["-y", "@kkweon/agent-orchestrator-mcp"]
     }
   }
 }
@@ -33,33 +37,25 @@ Add this server to your MCP client configuration (e.g., `gemini-cli`'s `settings
 
 ## Tools
 
-### `agent_create`
-Create a new agent in a new tmux pane.
-- `name` (string): Name of the agent.
-- `role` (string): Role/instruction for the agent.
-- `cwd` (string, optional): Working directory.
-
-### `agent_list`
-List all active agents managed by this server.
-
-### `agent_delete`
-Delete an agent and close its tmux pane.
-- `agent_id` (string): The ID of the agent to delete.
-
-### `task_enqueue`
-Enqueue a task for an agent.
-- `agent_id` (string): Target agent ID.
-- `task` (object): Task payload.
-
-### `wait_for_command` (Internal)
-Used by sub-agents to poll for new commands/tasks.
-
-### `emit_event` (Internal)
-Used by sub-agents to report progress or results.
+- **`agent_create`**: Spawn a new sub-agent in a split pane.
+  - Params: `name`, `role`, `model` (optional)
+- **`task_enqueue`**: Send a task to a specific sub-agent.
+- **`agent_list`**: List active agents in the current session.
+- **`agent_delete`**: Terminate a sub-agent and close its pane.
 
 ## Development
 
-1. Clone the repository.
-2. Install dependencies: `npm install`
-3. Build: `npm run build`
-4. Run locally: `npm start`
+```bash
+# Install dependencies
+npm install
+
+# Build
+npm run build
+
+# Run tests
+npm test
+```
+
+## License
+
+MIT
