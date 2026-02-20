@@ -19,7 +19,8 @@ export class AgentManager {
 
   constructor(workspaceRoot: string = process.cwd()) {
     this.workspaceRoot = workspaceRoot;
-    this.sessionId = randomUUID(); 
+    // Check env var first (Sub-agent mode), else generate (Master mode)
+    this.sessionId = process.env.AGENT_SESSION_ID || randomUUID(); 
   }
 
   private getSessionDir(): string {
