@@ -79,8 +79,17 @@ describe('E2E with Mock Gemini', () => {
                  console.error("Mock Debug Log not found!");
              }
              
-             // Capture tmux pane if possible (need pane ID from agent meta)
-             // But we can't easily get it here without parsing meta.json again.
+             // Capture tmux pane output to see why it failed
+             if (agent && agent.tmuxPaneId) {
+                try {
+                    const parts = agent.tmuxPaneId.split(":");
+                    const paneId = parts[2] || parts[0];
+                    const paneLogs = await tmux.capturePane(paneId, 50);
+                    console.error("Tmux Pane Logs:", paneLogs);
+                } catch (e) {
+                    console.error("Failed to capture tmux pane logs", e);
+                }
+             }
         }
         expect(ready).toBe(true);
 
