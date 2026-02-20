@@ -79,10 +79,11 @@ export class AgentManager {
     await tmux.sendKeys(pane.paneId, `export AGENT_ID=${id}`);
     await tmux.sendKeys(pane.paneId, `export AGENT_SESSION_ID=${this.sessionId}`);
     
-    // 2. Launch Gemini CLI
+    // 2. Launch Gemini CLI (or Mock)
     // Model preference: params > env > default
     const model = params.model || process.env.GEMINI_MODEL || "auto";
-    const cmd = `gemini -m ${model}`;
+    const executable = params.executablePath || "gemini";
+    const cmd = `${executable} -m ${model}`;
     
     // We assume 'gemini' is in the PATH.
     await tmux.sendKeys(pane.paneId, cmd);
