@@ -4,8 +4,7 @@
   "mcpServers": {
     "tmux-agent-orchestrator": {
       "command": "npx",
-      "args": ["-y", "@kkweon/agent-orchestrator-mcp"],
-      "cwd": "${extensionPath}"
+      "args": ["-y", "@kkweon/agent-orchestrator-mcp"]
     }
   }
 }
