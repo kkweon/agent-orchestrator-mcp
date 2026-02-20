@@ -1,3 +1,10 @@
+## [1.1.3](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.1.2...v1.1.3) (2026-02-20)
+
+
+### Bug Fixes
+
+* revert to local node execution in extension config and add prepare script ([412975e](https://github.com/kkweon/agent-orchestrator-mcp/commit/412975e75d880c0ee06d5080ae5d844b19985a40))
+
 ## [1.1.2](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.1.1...v1.1.2) (2026-02-20)
 
 
