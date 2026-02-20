@@ -43,10 +43,10 @@ export async function splitPane(targetPaneId: string, direction: "horizontal" | 
 }
 
 export async function sendKeys(paneId: string, keys: string): Promise<void> {
-  // Use literal sending for commands to avoid shell interpretation issues if possible, 
-  // but for now simple send-keys is standard.
-  // Ensure we send Enter at the end.
-  await execAsync(`tmux send-keys -t ${paneId} "${keys}" Enter`);
+  // Use single quotes to prevent the host shell from expanding variables (like $ or *)
+  // We must escape existing single quotes in the command.
+  const safeKeys = keys.replace(/'/g, "'\\''");
+  await execAsync(`tmux send-keys -t ${paneId} '${safeKeys}' Enter`);
 }
 
 export async function capturePane(paneId: string, lines = 100): Promise<string> {
