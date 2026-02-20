@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.1.0...v1.1.1) (2026-02-20)
+
+
+### Bug Fixes
+
+* update installation command to use install --auto-update ([d8b73e4](https://github.com/kkweon/agent-orchestrator-mcp/commit/d8b73e43d27186ce5729bcde10b1b375a329fc05))
+
 # [1.1.0](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.0.5...v1.1.0) (2026-02-20)
 
 
