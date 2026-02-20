@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.0.5...v1.1.0) (2026-02-20)
+
+
+### Features
+
+* add args param to agent_create for passing cli flags ([a972a45](https://github.com/kkweon/agent-orchestrator-mcp/commit/a972a45e3eeba0a692add69670a283fd057d8a04))
+
 ## [1.0.5](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.0.4...v1.0.5) (2026-02-20)
 
 
