@@ -53,13 +53,25 @@ If you need to configure it manually in your `gemini-extension.json`:
 }
 ```
 
-## Tools
+## 🛠️ Tools Reference
 
-- **`agent_create`**: Spawn a new sub-agent in a split pane.
-  - Params: `name`, `role`, `model` (optional)
-- **`task_enqueue`**: Send a task to a specific sub-agent.
-- **`agent_list`**: List active agents in the current session.
-- **`agent_delete`**: Terminate a sub-agent and close its pane.
+### Orchestrator Tools (For Master Agent)
+
+Use these tools to manage your workforce.
+
+| Tool Name | Description | Parameters |
+|-----------|-------------|------------|
+| **`agent_create`** | Spawns a new sub-agent in a split tmux pane. It automatically injects the runner loop and inception prompt. | `name` (string): Human-readable name<br>`role` (string): Specific role (e.g., "coder", "reviewer")<br>`model` (string, optional): Specific Gemini model to use |
+| **`agent_list`** | Lists all active agents in the current session. | *(None)* |
+| **`task_enqueue`** | Sends a task payload to a specific agent's inbox. | `agent_id` (string): Target agent's UUID<br>`task` (object): Arbitrary JSON payload (instructions) |
+| **`agent_delete`** | Terminates a sub-agent and kills its tmux pane. | `agent_id` (string): Target agent's UUID |
+
+### Internal Protocol Tools (For Sub-Agents)
+
+*These tools are used automatically by the sub-agents to communicate with the orchestrator. You rarely need to call them manually.*
+
+- **`wait_for_command`**: Long-polling endpoint for sub-agents to fetch new tasks from their `inbox`.
+- **`emit_event`**: Endpoint for sub-agents to report logs, progress, and results (`task_completed`) to the `outbox` and session broadcast.
 
 ## Development
 
