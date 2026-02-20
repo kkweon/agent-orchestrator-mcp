@@ -1,3 +1,10 @@
+## [1.1.8](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.1.7...v1.1.8) (2026-02-20)
+
+
+### Bug Fixes
+
+* use single quotes in tmux send-keys to prevent premature variable expansion ([c56e1cc](https://github.com/kkweon/agent-orchestrator-mcp/commit/c56e1cc9c78e8aac8907cbce741ddb0d0e0d2696))
+
 ## [1.1.7](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.1.6...v1.1.7) (2026-02-20)
 
 
