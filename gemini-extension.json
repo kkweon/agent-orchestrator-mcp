@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "mcpServers": {
     "tmux-agent-orchestrator": {
-      "command": "node",
-      "args": ["${extensionPath}/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "-q", "--package", "@kkweon/agent-orchestrator-mcp", "agent-orchestrator-mcp"],
       "cwd": "${extensionPath}"
     }
   }
