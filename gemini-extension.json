@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "mcpServers": {
     "orchestrator": {
-      "command": "node",
-      "args": ["${extensionPath}${/}dist${/}index.js"],
+      "command": "npx",
+      "args": ["-y", "@kkweon/agent-orchestrator-mcp"],
       "cwd": "${extensionPath}"
     }
   }
