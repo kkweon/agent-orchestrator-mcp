@@ -48,18 +48,12 @@ export class AgentManager {
 
     let context = await tmux.getCurrentTmuxContext();
     if (!context) {
-        // Not inside tmux? Check if our dedicated session exists.
-        try {
-            const existing = await tmux.getSessionContext("openclaw-agents");
-            if (existing) {
-                context = existing;
-            } else {
-                context = await tmux.createTmuxSession("openclaw-agents");
-            }
-        } catch (e) {
-            console.error("Warning: Could not determine tmux context", e);
-            throw e;
-        }
+      try {
+         context = await tmux.createTmuxSession("openclaw-agents");
+      } catch (e) {
+         console.error("Warning: Could not determine tmux context", e);
+         throw e;
+      }
     }
 
     const pane = await tmux.splitPane(context.paneId, "horizontal", params.cwd);

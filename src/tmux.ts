@@ -33,7 +33,16 @@ export async function createTmuxSession(sessionName: string): Promise<TmuxPane> 
   // Use -d to create detached session.
   // IMPORTANT: Set a large size explicitly to avoid "no space for new pane" errors in CI environments.
   // 80x24 is too small for splitting. Use 800x600.
-  await execAsync(`tmux new-session -d -s ${sessionName} -x 800 -y 600`);
+  try {
+    await execAsync(`tmux new-session -d -s ${sessionName} -x 800 -y 600`);
+  } catch (e: any) {
+    const msg = e.message || "";
+    const stderr = e.stderr || "";
+    if (!msg.includes("duplicate session") && !stderr.includes("duplicate session")) {
+        throw e;
+    }
+  }
+  
   const { stdout } = await execAsync(`tmux display-message -t ${sessionName} -p '#{session_id}:#{window_id}:#{pane_id}'`);
   const [sessionId, windowId, paneId] = stdout.trim().split(":");
   return { sessionId, windowId, paneId };
