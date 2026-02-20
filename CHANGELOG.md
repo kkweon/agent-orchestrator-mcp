@@ -1,3 +1,11 @@
+## [1.1.5](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.1.4...v1.1.5) (2026-02-20)
+
+
+### Bug Fixes
+
+* remove cwd from extension config to allow npx to run freely ([45d51bc](https://github.com/kkweon/agent-orchestrator-mcp/commit/45d51bc900d0ecbf122af9c09a1be4a022558bfe))
+* simplify npx args to standard usage ([2822f4b](https://github.com/kkweon/agent-orchestrator-mcp/commit/2822f4b08cbe84d753eea354d1bcdcace6f8a78e))
+
 ## [1.1.4](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.1.3...v1.1.4) (2026-02-20)
 
 
