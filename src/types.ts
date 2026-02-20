@@ -35,4 +35,5 @@ export interface CreateAgentParams {
   role: string;
   cwd?: string;
   env?: Record<string, string>;
+  runnerPath?: string; // Optional: Override runner path
 }

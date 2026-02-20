@@ -1,8 +1,14 @@
+// src/agent-manager.ts
 import { Agent, Task, CreateAgentParams } from "./types.js";
 import * as tmux from "./tmux.js";
 import { randomUUID } from "crypto";
 import fs from "fs/promises";
 import path from "path";
+import { fileURLToPath } from "url";
+
+// Get directory of current module
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Helper to get workspace root
 const AGENTS_DIR = ".agents";
@@ -66,11 +72,18 @@ export class AgentManager {
 
     await fs.writeFile(path.join(agentDir, "meta.json"), JSON.stringify(agent, null, 2));
 
-    // Bootstrap Sub-agent
-    // Inject Session ID so the agent knows where to look/write
+    // Bootstrap Sub-agent: Inject Runner
+    const runnerPath = params.runnerPath || path.resolve(__dirname, "../dist/agent-runner.js");
+    
+    // Check if runner exists (only if default is used)
+    // If running from src (dev), it might be dist/src/agent-runner.js depending on build output
+    // But usually 'npm run build' puts everything in dist/
+    
     await tmux.sendKeys(pane.paneId, `export AGENT_ID=${id}`);
-    await tmux.sendKeys(pane.paneId, `export AGENT_SESSION_ID=${this.sessionId}`); // New env var
-    await tmux.sendKeys(pane.paneId, `echo "Agent ${id} ready in Session ${this.sessionId}. Run your agent loop here."`);
+    await tmux.sendKeys(pane.paneId, `export AGENT_SESSION_ID=${this.sessionId}`);
+    await tmux.sendKeys(pane.paneId, `echo "Starting Agent Runner..."`);
+    // Run the node script
+    await tmux.sendKeys(pane.paneId, `node "${runnerPath}"`);
 
     return agent;
   }
@@ -106,9 +119,7 @@ export class AgentManager {
     } catch (e) {
         // ignore
     }
-    // We might want to remove the dir, or keep it for history. 
-    // For session isolation, maybe we can delete it to keep it clean.
-    // Let's keep it for now as per previous logic.
+    // We keep the dir for history/debugging for now.
   }
 
   async enqueueTask(agentId: string, taskPayload: any): Promise<string> {
