@@ -1,3 +1,10 @@
+## [1.0.4](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.0.3...v1.0.4) (2026-02-20)
+
+
+### Bug Fixes
+
+* use npx in gemini-extension.json for easier usage ([0e00483](https://github.com/kkweon/agent-orchestrator-mcp/commit/0e00483294319ed099ee41909159d30123192e24))
+
 ## [1.0.3](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.0.2...v1.0.3) (2026-02-20)
 
 
