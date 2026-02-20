@@ -19,10 +19,6 @@ export class AgentManager {
 
   constructor(workspaceRoot: string = process.cwd()) {
     this.workspaceRoot = workspaceRoot;
-    // If we are a sub-agent, we might be passed a session ID? 
-    // But usually the orchestrator *starts* a new session or manages one.
-    // Let's stick to generating one for the orchestrator instance.
-    // If the user wants to resume, they'd need to pass it, but for now we generate new.
     this.sessionId = randomUUID(); 
   }
 
@@ -85,7 +81,7 @@ export class AgentManager {
     const executable = params.executablePath || "gemini";
     
     // 3. Inject Inception Prompt (Brain Bootstrapping)
-    // We send this as input to the running Gemini CLI via -i flag.
+    // We send this as input to the running Gemini CLI.
     const inceptionPrompt = `
 You are a specialized sub-agent with ID "${id}" and Role "${params.role}".
 Your goal is to autonomously process tasks from the orchestrator.
@@ -98,17 +94,22 @@ PROTOCOL:
 5. If it times out or fails, just retry the loop.
 
 Start your loop now.
-`.trim().replace(/\n/g, " "); // Minify for command line safety
+`.trim();
 
+    // Write prompt to file to avoid escaping issues and race conditions
+    const inceptionPath = path.join(agentDir, "inception.txt");
+    await fs.writeFile(inceptionPath, inceptionPrompt);
+
+    // Construct args
+    let args = params.args || [];
     const argsStr = args.join(" ");
-    // Use -i to inject prompt and stay interactive
-    // We wrap prompt in quotes to handle spaces
-    const cmd = `${executable} -m ${model} ${argsStr} -i "${inceptionPrompt.replace(/"/g, '\\"')}"`;
+    
+    // Pass prompt as an argument using cat
+    // This assumes a unix-like environment (which tmux implies)
+    const cmd = `${executable} -m ${model} ${argsStr} "$(cat '${inceptionPath}')"`;
     
     // We assume 'gemini' is in the PATH.
     await tmux.sendKeys(pane.paneId, cmd);
-    
-    // No delay needed anymore!
 
     return agent;
   }
