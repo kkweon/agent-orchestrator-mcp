@@ -20,6 +20,15 @@ export async function getCurrentTmuxContext(): Promise<TmuxPane | null> {
   }
 }
 
+export async function hasSession(sessionName: string): Promise<boolean> {
+  try {
+    await execAsync(`tmux has-session -t ${sessionName}`);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
 export async function createTmuxSession(sessionName: string): Promise<TmuxPane> {
   // Use -d to create detached session.
   // IMPORTANT: Set a large size explicitly to avoid "no space for new pane" errors in CI environments.
@@ -28,6 +37,16 @@ export async function createTmuxSession(sessionName: string): Promise<TmuxPane> 
   const { stdout } = await execAsync(`tmux display-message -t ${sessionName} -p '#{session_id}:#{window_id}:#{pane_id}'`);
   const [sessionId, windowId, paneId] = stdout.trim().split(":");
   return { sessionId, windowId, paneId };
+}
+
+export async function getSessionContext(sessionName: string): Promise<TmuxPane | null> {
+  try {
+    const { stdout } = await execAsync(`tmux display-message -t ${sessionName} -p '#{session_id}:#{window_id}:#{pane_id}'`);
+    const [sessionId, windowId, paneId] = stdout.trim().split(":");
+    return { sessionId, windowId, paneId };
+  } catch (error) {
+    return null;
+  }
 }
 
 export async function splitPane(targetPaneId: string, direction: "horizontal" | "vertical" = "horizontal", cwd?: string): Promise<TmuxPane> {
