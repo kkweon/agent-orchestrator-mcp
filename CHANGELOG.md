@@ -1,3 +1,10 @@
+## [1.0.3](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.0.2...v1.0.3) (2026-02-20)
+
+
+### Bug Fixes
+
+* correct installation instructions for gemini extension ([a3e3506](https://github.com/kkweon/agent-orchestrator-mcp/commit/a3e3506eb712d3658d04f6c445e5116ffe9d1f9e))
+
 ## [1.0.2](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.0.1...v1.0.2) (2026-02-20)
 
 
