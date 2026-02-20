@@ -83,7 +83,15 @@ export class AgentManager {
     // Model preference: params > env > default
     const model = params.model || process.env.GEMINI_MODEL || "auto";
     const executable = params.executablePath || "gemini";
-    const cmd = `${executable} -m ${model}`;
+    
+    // Construct args
+    let args = params.args || [];
+    // Default to auto-approve/yolo if not specified, because sub-agents can't handle prompts
+    // We append specific flags if provided by user, otherwise user must provide them in args.
+    // NOTE: We assume the user provides the correct flag in 'args' if the default isn't enough.
+    
+    const argsStr = args.join(" ");
+    const cmd = `${executable} -m ${model} ${argsStr}`;
     
     // We assume 'gemini' is in the PATH.
     await tmux.sendKeys(pane.paneId, cmd);

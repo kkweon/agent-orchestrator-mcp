@@ -32,6 +32,8 @@ const TOOLS = [
       properties: {
         name: { type: "string" },
         role: { type: "string" },
+        model: { type: "string" },
+        args: { type: "array", items: { type: "string" } },
         cwd: { type: "string" },
       },
       required: ["name", "role"],

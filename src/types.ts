@@ -37,4 +37,5 @@ export interface CreateAgentParams {
   env?: Record<string, string>;
   model?: string; // Optional: Gemini model to use
   executablePath?: string; // Optional: Override the binary command (for testing)
+  args?: string[]; // Optional: Extra arguments for the command (e.g. ["--yolo", "--debug"])
 }
