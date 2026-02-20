@@ -84,24 +84,8 @@ export class AgentManager {
     const model = params.model || process.env.GEMINI_MODEL || "auto";
     const executable = params.executablePath || "gemini";
     
-    // Construct args
-    let args = params.args || [];
-    // Default to auto-approve/yolo if not specified, because sub-agents can't handle prompts
-    // We append specific flags if provided by user, otherwise user must provide them in args.
-    // NOTE: We assume the user provides the correct flag in 'args' if the default isn't enough.
-    
-    const argsStr = args.join(" ");
-    const cmd = `${executable} -m ${model} ${argsStr}`;
-    
-    // We assume 'gemini' is in the PATH.
-    await tmux.sendKeys(pane.paneId, cmd);
-
-    // Wait for Gemini CLI to initialize (3 seconds)
-    // This prevents the inception prompt from being typed before the CLI is ready.
-    await new Promise(resolve => setTimeout(resolve, 3000));
-
     // 3. Inject Inception Prompt (Brain Bootstrapping)
-    // We send this as input to the running Gemini CLI.
+    // We send this as input to the running Gemini CLI via -i flag.
     const inceptionPrompt = `
 You are a specialized sub-agent with ID "${id}" and Role "${params.role}".
 Your goal is to autonomously process tasks from the orchestrator.
@@ -114,12 +98,17 @@ PROTOCOL:
 5. If it times out or fails, just retry the loop.
 
 Start your loop now.
-`.trim();
+`.trim().replace(/\n/g, " "); // Minify for command line safety
 
-    // Send the prompt. 
-    // Warning: Large prompts might be flaky with send-keys if buffer overflows, 
-    // but for this length it should be fine.
-    await tmux.sendKeys(pane.paneId, inceptionPrompt);
+    const argsStr = args.join(" ");
+    // Use -i to inject prompt and stay interactive
+    // We wrap prompt in quotes to handle spaces
+    const cmd = `${executable} -m ${model} ${argsStr} -i "${inceptionPrompt.replace(/"/g, '\\"')}"`;
+    
+    // We assume 'gemini' is in the PATH.
+    await tmux.sendKeys(pane.paneId, cmd);
+    
+    // No delay needed anymore!
 
     return agent;
   }
