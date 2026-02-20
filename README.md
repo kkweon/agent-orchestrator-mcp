@@ -12,6 +12,14 @@ Designed for [OpenClaw](https://github.com/openclaw/openclaw) and Gemini CLI env
 - **Auto-Inception**: Sub-agents are automatically prompted with their role and protocol upon startup.
 - **Native Gemini CLI**: Sub-agents run actual `gemini` CLI instances with configurable models.
 
+## Prerequisites
+
+Before running this server, ensure you have the following installed on your system:
+
+- **[tmux](https://github.com/tmux/tmux/wiki)** (Required): This server relies heavily on `tmux` for process isolation and pane management.
+- **Node.js** (v18+): Required to run the MCP server.
+- **Gemini CLI** (Optional): If you plan to spawn standard Gemini agents, the `gemini` command should be in your PATH.
+
 ## Installation & Usage
 
 You can run this MCP server directly using `npx`:
