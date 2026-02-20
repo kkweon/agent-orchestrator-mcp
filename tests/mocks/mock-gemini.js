@@ -1,6 +1,6 @@
 // tests/mocks/mock-gemini.js
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
 
 // NOTE: Use passed argument for workspace root if available, else CWD
 const WORKSPACE_ROOT = process.argv[2] || process.cwd(); 
