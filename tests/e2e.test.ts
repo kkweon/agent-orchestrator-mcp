@@ -44,7 +44,8 @@ describe('E2E with Mock Gemini', () => {
         // Use node to run the JS mock directly (no ts-node dependency issues)
         // Use absolute path for reliability
         const mockScript = path.resolve(WORKSPACE_ROOT, 'tests/mocks/mock-gemini.js');
-        const mockCommand = `node "${mockScript}"`;
+        // Pass WORKSPACE_ROOT as argument to ensure paths align even if CWD differs in tmux
+        const mockCommand = `node "${mockScript}" "${WORKSPACE_ROOT}"`;
 
         console.log("Spawning Agent with Mock Command:", mockCommand);
 
