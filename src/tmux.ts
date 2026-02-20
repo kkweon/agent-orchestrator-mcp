@@ -85,3 +85,11 @@ export async function capturePane(paneId: string, lines = 100): Promise<string> 
 export async function killPane(paneId: string): Promise<void> {
   await execAsync(`tmux kill-pane -t ${paneId}`);
 }
+
+export async function killSession(sessionName: string): Promise<void> {
+  try {
+    await execAsync(`tmux kill-session -t ${sessionName}`);
+  } catch (e) {
+    // ignore if session doesn't exist
+  }
+}

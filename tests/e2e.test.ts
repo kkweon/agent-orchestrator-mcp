@@ -3,6 +3,7 @@ import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import * as tmux from '../src/tmux.js'; // Ensure we use the same tmux module as AgentManager
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,6 +32,9 @@ describe('E2E with Mock Gemini', () => {
     let manager: any;
 
     beforeEach(async () => {
+        // Kill session to ensure clean state and avoid pane exhaustion
+        await tmux.killSession('openclaw-agents');
+        
         const mod = await import('../src/agent-manager.js');
         AgentManager = mod.AgentManager;
         manager = new AgentManager(WORKSPACE_ROOT);
