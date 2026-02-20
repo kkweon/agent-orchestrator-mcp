@@ -19,7 +19,11 @@ export class AgentManager {
 
   constructor(workspaceRoot: string = process.cwd()) {
     this.workspaceRoot = workspaceRoot;
-    this.sessionId = randomUUID(); // Generate unique session ID on startup
+    // If we are a sub-agent, we might be passed a session ID? 
+    // But usually the orchestrator *starts* a new session or manages one.
+    // Let's stick to generating one for the orchestrator instance.
+    // If the user wants to resume, they'd need to pass it, but for now we generate new.
+    this.sessionId = randomUUID(); 
   }
 
   private getSessionDir(): string {
@@ -32,7 +36,6 @@ export class AgentManager {
 
   private async ensureSessionDir() {
     await fs.mkdir(path.join(this.getSessionDir(), "agents"), { recursive: true });
-    // broadcast.jsonl will be in getSessionDir()
   }
 
   async createAgent(params: CreateAgentParams): Promise<Agent> {
@@ -72,25 +75,44 @@ export class AgentManager {
 
     await fs.writeFile(path.join(agentDir, "meta.json"), JSON.stringify(agent, null, 2));
 
-    // Bootstrap Sub-agent: Inject Runner
-    const runnerPath = params.runnerPath || path.resolve(__dirname, "../dist/agent-runner.js");
-    
-    // Check if runner exists (only if default is used)
-    // If running from src (dev), it might be dist/src/agent-runner.js depending on build output
-    // But usually 'npm run build' puts everything in dist/
-    
+    // 1. Prepare Environment
     await tmux.sendKeys(pane.paneId, `export AGENT_ID=${id}`);
     await tmux.sendKeys(pane.paneId, `export AGENT_SESSION_ID=${this.sessionId}`);
-    await tmux.sendKeys(pane.paneId, `echo "Starting Agent Runner..."`);
-    // Run the node script
-    await tmux.sendKeys(pane.paneId, `node "${runnerPath}"`);
+    
+    // 2. Launch Gemini CLI
+    // Model preference: params > env > default
+    const model = params.model || process.env.GEMINI_MODEL || "auto";
+    const cmd = `gemini -m ${model}`;
+    
+    // We assume 'gemini' is in the PATH.
+    await tmux.sendKeys(pane.paneId, cmd);
+
+    // 3. Inject Inception Prompt (Brain Bootstrapping)
+    // We send this as input to the running Gemini CLI.
+    const inceptionPrompt = `
+You are a specialized sub-agent with ID "${id}" and Role "${params.role}".
+Your goal is to autonomously process tasks from the orchestrator.
+
+PROTOCOL:
+1. Loop indefinitely.
+2. Inside the loop, call the tool 'wait_for_command' with agent_id="${id}" and timeout_ms=30000.
+3. If 'wait_for_command' returns a task, execute it using your capabilities.
+4. After execution, call the tool 'emit_event' with agent_id="${id}" and type="task_completed" (include the result).
+5. If it times out or fails, just retry the loop.
+
+Start your loop now.
+`.trim();
+
+    // Send the prompt. 
+    // Warning: Large prompts might be flaky with send-keys if buffer overflows, 
+    // but for this length it should be fine.
+    await tmux.sendKeys(pane.paneId, inceptionPrompt);
 
     return agent;
   }
 
   async listAgents(): Promise<Agent[]> {
     await this.ensureSessionDir();
-    // Only list agents in the current session
     const agentsDir = path.join(this.getSessionDir(), "agents");
     try {
         const dirs = await fs.readdir(agentsDir);
@@ -119,7 +141,6 @@ export class AgentManager {
     } catch (e) {
         // ignore
     }
-    // We keep the dir for history/debugging for now.
   }
 
   async enqueueTask(agentId: string, taskPayload: any): Promise<string> {
@@ -132,7 +153,6 @@ export class AgentManager {
         timestamp: Date.now()
     };
     
-    // Check if agent dir exists (validating agent belongs to this session)
     try {
         await fs.access(agentDir);
     } catch {
@@ -155,7 +175,6 @@ export class AgentManager {
             const lines = content.split("\n").filter(line => line.trim() !== "");
             
             if (lines.length > cursor) {
-                // New command found
                 const line = lines[cursor];
                 const command = JSON.parse(line);
                 return {
@@ -168,7 +187,6 @@ export class AgentManager {
             // file might not exist yet
         }
         
-        // Wait a bit
         await new Promise(r => setTimeout(r, 500));
     }
 
@@ -188,7 +206,6 @@ export class AgentManager {
     
     const line = JSON.stringify(entry) + "\n";
     await fs.appendFile(outboxPath, line);
-    // Also append to session-scoped broadcast
     await fs.appendFile(broadcastPath, line);
   }
 }
