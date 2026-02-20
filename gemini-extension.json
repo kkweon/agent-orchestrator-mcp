@@ -1,0 +1,11 @@
+{
+  "name": "agent-orchestrator",
+  "version": "1.0.0",
+  "mcpServers": {
+    "orchestrator": {
+      "command": "node",
+      "args": ["${extensionPath}${/}dist${/}index.js"],
+      "cwd": "${extensionPath}"
+    }
+  }
+}

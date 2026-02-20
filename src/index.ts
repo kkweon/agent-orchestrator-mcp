@@ -5,6 +5,7 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
+import { AgentManager } from "./agent-manager.js";
 
 const server = new Server(
   {
@@ -19,7 +20,8 @@ const server = new Server(
   }
 );
 
-// Tool definitions based on PRD
+const agentManager = new AgentManager();
+
 const TOOLS = [
   {
     name: "agent_create",
@@ -34,7 +36,62 @@ const TOOLS = [
       required: ["name", "role"],
     },
   },
-  // We'll add more tools as we implement them
+  {
+    name: "agent_list",
+    description: "List all active agents",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "agent_delete",
+    description: "Delete an agent and its tmux pane",
+    inputSchema: {
+      type: "object",
+      properties: {
+        agent_id: { type: "string" },
+      },
+      required: ["agent_id"],
+    },
+  },
+  {
+    name: "task_enqueue",
+    description: "Enqueue a task for an agent",
+    inputSchema: {
+      type: "object",
+      properties: {
+        agent_id: { type: "string" },
+        task: { type: "object" },
+      },
+      required: ["agent_id", "task"],
+    },
+  },
+  {
+    name: "wait_for_command",
+    description: "Internal: Agent polls for new commands",
+    inputSchema: {
+      type: "object",
+      properties: {
+        agent_id: { type: "string" },
+        timeout_ms: { type: "number" },
+        cursor: { type: "number" },
+      },
+      required: ["agent_id", "timeout_ms"],
+    },
+  },
+  {
+    name: "emit_event",
+    description: "Internal: Agent emits an event (result/log)",
+    inputSchema: {
+      type: "object",
+      properties: {
+        agent_id: { type: "string" },
+        event: { type: "object" },
+      },
+      required: ["agent_id", "event"],
+    },
+  }
 ];
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
@@ -46,14 +103,49 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
   try {
     if (name === "agent_create") {
-      // Stub for agent_create
+      const params = args as any;
+      const agent = await agentManager.createAgent(params);
       return {
-        content: [
-          {
-            type: "text",
-            text: `Agent creation stub for ${JSON.stringify(args)}`,
-          },
-        ],
+        content: [{ type: "text", text: JSON.stringify(agent, null, 2) }],
+      };
+    }
+
+    if (name === "agent_list") {
+      const agents = await agentManager.listAgents();
+      return {
+        content: [{ type: "text", text: JSON.stringify(agents, null, 2) }],
+      };
+    }
+
+    if (name === "agent_delete") {
+      const { agent_id } = args as any;
+      await agentManager.deleteAgent(agent_id);
+      return {
+        content: [{ type: "text", text: `Agent ${agent_id} deleted` }],
+      };
+    }
+
+    if (name === "task_enqueue") {
+      const { agent_id, task } = args as any;
+      const taskId = await agentManager.enqueueTask(agent_id, task);
+      return {
+        content: [{ type: "text", text: JSON.stringify({ task_id: taskId }) }],
+      };
+    }
+
+    if (name === "wait_for_command") {
+      const { agent_id, timeout_ms, cursor } = args as any;
+      const result = await agentManager.waitForCommand(agent_id, cursor || 0, timeout_ms);
+      return {
+        content: [{ type: "text", text: JSON.stringify(result) }],
+      };
+    }
+
+    if (name === "emit_event") {
+      const { agent_id, event } = args as any;
+      await agentManager.emitEvent(agent_id, event);
+      return {
+        content: [{ type: "text", text: "ok" }],
       };
     }
 
