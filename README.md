@@ -24,10 +24,10 @@ Before running this server, ensure you have the following installed on your syst
 
 ### 1. Install as Gemini Extension
 
-The easiest way to use this orchestrator is to link it directly to your Gemini CLI:
+The easiest way to use this orchestrator is to install it directly to your Gemini CLI:
 
 ```bash
-gemini extension link https://github.com/kkweon/agent-orchestrator-mcp
+gemini extension install --auto-update https://github.com/kkweon/agent-orchestrator-mcp
 ```
 
 ### 2. Standalone Execution (via npx)
