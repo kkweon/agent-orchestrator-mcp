@@ -5,16 +5,35 @@ const path = require('path');
 // Simulate Gemini CLI environment
 const AGENT_ID = process.env.AGENT_ID;
 const SESSION_ID = process.env.AGENT_SESSION_ID;
+// NOTE: CWD inside tmux pane might be different than test runner CWD. 
+// However, AgentManager.createAgent uses `process.cwd()` (WORKSPACE_ROOT) if not provided.
+// So the mock script should be running in WORKSPACE_ROOT.
 const WORKSPACE_ROOT = process.cwd(); 
 
+// Debug log to temp file
+const debugLog = (msg) => {
+    try {
+        fs.appendFileSync('/tmp/mock-gemini.log', `[${new Date().toISOString()}] [${AGENT_ID}] ${msg}\n`);
+    } catch {}
+};
+
+debugLog(`Started. CWD: ${process.cwd()} AGENT_ID: ${AGENT_ID} SESSION_ID: ${SESSION_ID}`);
+
 if (!AGENT_ID || !SESSION_ID) {
-  console.error("Mock Gemini: Missing AGENT_ID or AGENT_SESSION_ID");
+  debugLog("Missing env vars, exiting.");
   process.exit(1);
 }
+
+// We need to resolve paths carefully.
+// The AgentManager logic: path.join(this.workspaceRoot, AGENTS_DIR, "sessions", this.sessionId);
+// workspaceRoot passed to AgentManager was WORKSPACE_ROOT (from test).
+// So paths should align if CWD is correct.
 
 const AGENT_DIR = path.join(WORKSPACE_ROOT, ".agents", "sessions", SESSION_ID, "agents", AGENT_ID);
 const INBOX_PATH = path.join(AGENT_DIR, "inbox.jsonl");
 const OUTBOX_PATH = path.join(AGENT_DIR, "outbox.jsonl");
+
+debugLog(`AGENT_DIR: ${AGENT_DIR}`);
 
 // Helper to append to outbox
 function emitEvent(type, payload, taskId) {
@@ -25,19 +44,20 @@ function emitEvent(type, payload, taskId) {
     payload,
     timestamp: Date.now(),
   };
-  fs.appendFileSync(OUTBOX_PATH, JSON.stringify(event) + "\n");
+  try {
+      fs.appendFileSync(OUTBOX_PATH, JSON.stringify(event) + "\n");
+      debugLog(`Emitted: ${type}`);
+  } catch (e) {
+      debugLog(`Error emitting: ${e.message}`);
+  }
 }
 
 async function main() {
-  console.log(`[Mock Gemini] Started for Agent ${AGENT_ID}`);
-  
-  // Parse args to support -i flag injection if needed (though we use file injection now)
-  // But our mock just needs to emit ready.
-  
   // Simulate initialization
   setTimeout(() => {
+      debugLog("Emitting agent_ready");
       emitEvent("agent_ready", { role: "mock", model: "fake-v1" });
-  }, 500);
+  }, 1000); // 1s delay
 
   let cursor = 0;
 
@@ -53,13 +73,12 @@ async function main() {
               try {
                   const taskEvent = JSON.parse(lines[i]);
                   if (taskEvent.type === "task") {
-                    console.log(`[Mock Gemini] Processing Task: ${taskEvent.taskId}`);
+                    debugLog(`Processing Task: ${taskEvent.taskId}`);
                     
                     // 1. Acknowledge
                     emitEvent("task_started", { taskId: taskEvent.taskId }, taskEvent.taskId);
                     
                     // 2. Simulate Work
-                    // Wait a bit then complete
                     setTimeout(() => {
                         emitEvent("task_completed", { 
                             status: "success", 
@@ -74,11 +93,11 @@ async function main() {
           }
       }
     } catch (e) {
-      // Ignore read errors
+      debugLog(`Error loop: ${e.message}`);
     }
     // Sleep 200ms
     await new Promise((resolve) => setTimeout(resolve, 200));
   }
 }
 
-main().catch(console.error);
+main().catch(e => debugLog(`Fatal: ${e.message}`));

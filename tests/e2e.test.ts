@@ -50,7 +50,8 @@ describe('E2E with Mock Gemini', () => {
         const agent = await manager.createAgent({
             name: 'e2e-worker',
             role: 'worker',
-            executablePath: mockCommand 
+            executablePath: mockCommand,
+            cwd: WORKSPACE_ROOT // Ensure mock runs in the same workspace
         });
 
         expect(agent).toBeDefined();
