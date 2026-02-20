@@ -16,4 +16,6 @@ export default {
       },
     ],
   },
+  globalSetup: '<rootDir>/tests/setup.ts',
+  globalTeardown: '<rootDir>/tests/teardown.ts',
 };
