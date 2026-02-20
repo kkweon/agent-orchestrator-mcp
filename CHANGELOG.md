@@ -1,3 +1,10 @@
+## [1.1.6](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.1.5...v1.1.6) (2026-02-20)
+
+
+### Bug Fixes
+
+* add 3s delay before injecting inception prompt to wait for cli boot ([df0b53d](https://github.com/kkweon/agent-orchestrator-mcp/commit/df0b53d61662d08c600b121079d974297f5794de))
+
 ## [1.1.5](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.1.4...v1.1.5) (2026-02-20)
 
 
