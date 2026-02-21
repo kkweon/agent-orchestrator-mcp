@@ -78,6 +78,10 @@ export class AgentManager {
       metadata: {},
     };
 
+    // Re-ensure the agent directory exists before writing meta.json.
+    // The tmux session/pane creation above can take >200ms, during which CI
+    // cleanup from other test suites may have removed the directory tree.
+    await fs.mkdir(agentDir, { recursive: true });
     await fs.writeFile(path.join(agentDir, "meta.json"), JSON.stringify(agent, null, 2));
 
     // 1. Prepare Environment
