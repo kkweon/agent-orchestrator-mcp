@@ -1,3 +1,19 @@
+## [1.1.9](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.1.8...v1.1.9) (2026-02-21)
+
+
+### Bug Fixes
+
+* add detailed tmux pane log capture on e2e test failure to debug agent startup issues ([b40c5f7](https://github.com/kkweon/agent-orchestrator-mcp/commit/b40c5f700f30e803a5539d304b472ed3baaf25e5))
+* add jest global setup/teardown to cleanup tmux sessions and prevent duplicate session errors in CI ([62612c2](https://github.com/kkweon/agent-orchestrator-mcp/commit/62612c2ee79eb6cd7937678ec6766671779f9c93))
+* add small delay after sendKeys in tmux to mitigate race conditions in CI ([839afd2](https://github.com/kkweon/agent-orchestrator-mcp/commit/839afd2b56a10d7f78edf0a0c44213ba8ceaf7c1))
+* ensure clean tmux state for e2e tests by killing old sessions in beforeEach ([096ffc3](https://github.com/kkweon/agent-orchestrator-mcp/commit/096ffc3702f9b6277d71d976488ec3bc37c3376c))
+* ensure sub-agents inherit session ID via AGENT_SESSION_ID env var ([39bffd5](https://github.com/kkweon/agent-orchestrator-mcp/commit/39bffd56804d66376b2071ba7ddaf1cc321d0f6d))
+* make createTmuxSession idempotent by handling duplicate session error ([63ccd7f](https://github.com/kkweon/agent-orchestrator-mcp/commit/63ccd7f2e228bf84cb9fc238edd890071ee02d83))
+* make createTmuxSession idempotent by handling duplicate session errors gracefully ([c940a50](https://github.com/kkweon/agent-orchestrator-mcp/commit/c940a50a2d3474550932fdf1b7e43c4d1844a683))
+* reuse existing tmux session if present to prevent duplicate session errors in CI ([f014a8e](https://github.com/kkweon/agent-orchestrator-mcp/commit/f014a8ea16dde27121f6ec74cd0ccdf1696e532f))
+* run tests sequentially (--runInBand) to prevent file system race conditions in CI ([7f3b84f](https://github.com/kkweon/agent-orchestrator-mcp/commit/7f3b84fdac584c5a1f5a07e71739073f5c6bcf20))
+* use absolute path for node executable in e2e test and add debug logging for mock script failures ([e6ae634](https://github.com/kkweon/agent-orchestrator-mcp/commit/e6ae634ecfd02753d7264e1f362aa1a51fc5ffb5))
+
 ## [1.1.8](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.1.7...v1.1.8) (2026-02-20)
 
 
