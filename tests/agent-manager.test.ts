@@ -69,7 +69,7 @@ describe('AgentManager', () => {
         // Verify environment setup
         expect(mockTmux.sendKeys).toHaveBeenCalledWith(
             expect.stringContaining('test-pane-new'),
-            expect.stringContaining('export AGENT_ID=')
+            expect.stringContaining('AGENT_ID=')
         );
 
         // Verify CLI launch command includes prompt injection via file

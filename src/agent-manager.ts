@@ -79,8 +79,8 @@ export class AgentManager {
     await fs.writeFile(path.join(agentDir, "meta.json"), JSON.stringify(agent, null, 2));
 
     // 1. Prepare Environment
-    await tmux.sendKeys(pane.paneId, `export AGENT_ID=${id}`);
-    await tmux.sendKeys(pane.paneId, `export AGENT_SESSION_ID=${this.sessionId}`);
+    // We pass AGENT_ID and AGENT_SESSION_ID inline with the command execution
+    // to guarantee they are set correctly without relying on separate export commands.
     
     // 2. Launch Gemini CLI (or Mock)
     // Model preference: params > env > default
@@ -123,7 +123,8 @@ Start your loop now.
     }
     
     // We assume 'gemini' is in the PATH.
-    await tmux.sendKeys(pane.paneId, cmd);
+    const fullCmd = `AGENT_ID=${id} AGENT_SESSION_ID=${this.sessionId} ${cmd}`;
+    await tmux.sendKeys(pane.paneId, fullCmd);
 
     return agent;
   }
@@ -139,11 +140,12 @@ Start your loop now.
                 const meta = JSON.parse(await fs.readFile(path.join(agentsDir, dir, "meta.json"), "utf-8"));
                 agents.push(meta);
             } catch (e) {
-                // ignore invalid dirs
+                console.error(`Failed to load agent meta for ${dir}:`, e);
             }
         }
         return agents;
     } catch (e) {
+        console.error("Failed to list agents:", e);
         return [];
     }
   }
@@ -156,7 +158,7 @@ Start your loop now.
         const paneId = parts[2] || parts[0];
         await tmux.killPane(paneId);
     } catch (e) {
-        // ignore
+        console.error(`Failed to delete agent ${id}:`, e);
     }
   }
 

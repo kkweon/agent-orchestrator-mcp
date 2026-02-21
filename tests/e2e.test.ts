@@ -30,10 +30,12 @@ let AgentManager: any;
 
 describe('E2E with Mock Gemini', () => {
     let manager: any;
+    let createdAgents: string[] = [];
 
     beforeEach(async () => {
         // Kill session to ensure clean state and avoid pane exhaustion
         await tmux.killSession('openclaw-agents');
+        createdAgents = [];
         
         const mod = await import('../src/agent-manager.js');
         AgentManager = mod.AgentManager;
@@ -41,7 +43,12 @@ describe('E2E with Mock Gemini', () => {
     });
 
     afterEach(async () => {
-        // Cleanup if needed
+        for (const id of createdAgents) {
+            try {
+                await manager.deleteAgent(id);
+            } catch (e) {}
+        }
+        await tmux.killSession('openclaw-agents');
     });
 
     it('should spawn a mock agent and process a task', async () => {
@@ -61,6 +68,7 @@ describe('E2E with Mock Gemini', () => {
             executablePath: mockCommand,
             cwd: WORKSPACE_ROOT // Ensure mock runs in the same workspace
         });
+        createdAgents.push(agent.id);
 
         expect(agent).toBeDefined();
         
@@ -105,7 +113,5 @@ describe('E2E with Mock Gemini', () => {
         const content = await fs.readFile(outboxPath, 'utf-8');
         expect(content).toContain('Say Hello');
         expect(content).toContain('mocked');
-
-        await manager.deleteAgent(agent.id);
     }, 30000);
 });
