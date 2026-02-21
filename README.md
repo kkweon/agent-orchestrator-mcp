@@ -23,14 +23,14 @@ graph TD
     User["User"]
 
     subgraph SessionA["Session A  (.agents/sessions/uuid-a/)"]
-        MA["Master Agent\n(Gemini CLI)"]
+        MA["Master Agent<br/>(Gemini CLI)"]
         MA --> SA1["Sub-Agent 1"]
         MA --> SA2["Sub-Agent 2"]
         MA --> SAN["Sub-Agent N"]
     end
 
     subgraph SessionB["Session B  (.agents/sessions/uuid-b/)"]
-        MB["Master Agent\n(Gemini CLI)"]
+        MB["Master Agent<br/>(Gemini CLI)"]
         MB --> SB1["Sub-Agent 1"]
         MB --> SB2["Sub-Agent 2"]
     end
@@ -47,19 +47,19 @@ Within a session the master agent spawns sub-agents into tmux panes. All state i
 
 ```mermaid
 graph TD
-    Master["Master Agent\n(Gemini CLI + MCP)"]
+    Master["Master Agent<br/>(Gemini CLI + MCP)"]
 
     subgraph Tmux["tmux session: openclaw-agents"]
-        P1["Pane — Sub-Agent 1\n(Gemini CLI)"]
-        P2["Pane — Sub-Agent 2\n(Gemini CLI)"]
-        PN["Pane — Sub-Agent N\n(Gemini CLI)"]
+        P1["Pane — Sub-Agent 1<br/>(Gemini CLI)"]
+        P2["Pane — Sub-Agent 2<br/>(Gemini CLI)"]
+        PN["Pane — Sub-Agent N<br/>(Gemini CLI)"]
     end
 
     subgraph FS[".agents/sessions/&lt;session_id&gt;/"]
-        BC["broadcast.jsonl\n(all events)"]
-        D1["agents/agent-1/\ninbox.jsonl · outbox.jsonl"]
-        D2["agents/agent-2/\ninbox.jsonl · outbox.jsonl"]
-        DN["agents/agent-N/\ninbox.jsonl · outbox.jsonl"]
+        BC["broadcast.jsonl<br/>(all events)"]
+        D1["agents/agent-1/<br/>inbox.jsonl · outbox.jsonl"]
+        D2["agents/agent-2/<br/>inbox.jsonl · outbox.jsonl"]
+        DN["agents/agent-N/<br/>inbox.jsonl · outbox.jsonl"]
     end
 
     Master -->|"agent_create → spawns"| P1
