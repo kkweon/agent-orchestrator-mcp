@@ -1,3 +1,11 @@
+## [1.1.10](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.1.9...v1.1.10) (2026-02-21)
+
+
+### Bug Fixes
+
+* improve agent lifecycle, environment propagation, and test cleanup ([7be7dea](https://github.com/kkweon/agent-orchestrator-mcp/commit/7be7deacf5e5a1ef3ab2570fad75dbf15914d99f))
+* improve tmux resilience and agent metadata handling in CI ([7400186](https://github.com/kkweon/agent-orchestrator-mcp/commit/74001863ba4e553a506c9783f0a8300a22d9f51d))
+
 ## [1.1.9](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.1.8...v1.1.9) (2026-02-21)
 
 
