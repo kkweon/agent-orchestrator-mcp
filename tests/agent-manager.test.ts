@@ -231,6 +231,73 @@ describe('AgentManager', () => {
         expect(a3Inbox).toBe('');
     });
 
+    // --- readEvents tests ---
+
+    it('readEvents returns empty when outbox does not exist', async () => {
+        const result = await manager.readEvents('nonexistent-agent', 0);
+        expect(result.events).toEqual([]);
+        expect(result.next_cursor).toBe(0);
+    });
+
+    it('readEvents reads from broadcast.jsonl when no agent_id provided', async () => {
+        const [a1] = await setupTwoAgents();
+        await manager.emitEvent(a1.id, { type: 'broadcast-event' });
+
+        const result = await manager.readEvents(undefined, 0);
+        expect(result.events.length).toBe(1);
+        expect(result.events[0].type).toBe('broadcast-event');
+        expect(result.next_cursor).toBe(1);
+    });
+
+    it('readEvents reads from specific agent outbox when agent_id provided', async () => {
+        const [a1, a2] = await setupTwoAgents();
+        await manager.emitEvent(a1.id, { type: 'agent1-event' });
+        await manager.emitEvent(a2.id, { type: 'agent2-event' });
+
+        const result = await manager.readEvents(a1.id, 0);
+        expect(result.events.length).toBe(1);
+        expect(result.events[0].type).toBe('agent1-event');
+        expect(result.next_cursor).toBe(1);
+    });
+
+    it('readEvents cursor skips already-read events', async () => {
+        const [a1] = await setupTwoAgents();
+        await manager.emitEvent(a1.id, { type: 'event-one' });
+        await manager.emitEvent(a1.id, { type: 'event-two' });
+        await manager.emitEvent(a1.id, { type: 'event-three' });
+
+        // Read first two via broadcast
+        const first = await manager.readEvents(undefined, 0, 2);
+        expect(first.events.length).toBe(2);
+        expect(first.next_cursor).toBe(2);
+
+        // Resume from cursor=2
+        const second = await manager.readEvents(undefined, 2);
+        expect(second.events.length).toBe(1);
+        expect(second.events[0].type).toBe('event-three');
+        expect(second.next_cursor).toBe(3);
+    });
+
+    it('readEvents limit caps returned events', async () => {
+        const [a1] = await setupTwoAgents();
+        await manager.emitEvent(a1.id, { type: 'e1' });
+        await manager.emitEvent(a1.id, { type: 'e2' });
+        await manager.emitEvent(a1.id, { type: 'e3' });
+
+        const result = await manager.readEvents(undefined, 0, 2);
+        expect(result.events.length).toBe(2);
+        expect(result.next_cursor).toBe(2);
+    });
+
+    it('readEvents cursor past end returns empty with same cursor', async () => {
+        const [a1] = await setupTwoAgents();
+        await manager.emitEvent(a1.id, { type: 'only-event' });
+
+        const result = await manager.readEvents(undefined, 99);
+        expect(result.events).toEqual([]);
+        expect(result.next_cursor).toBe(99);
+    });
+
     it('emitEvent with array of agent IDs delivers to each listed agent', async () => {
         const [a1, a2] = await setupTwoAgents();
 

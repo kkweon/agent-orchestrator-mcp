@@ -230,6 +230,34 @@ Start your loop now.
     return { status: "timeout", next_cursor: cursor };
   }
 
+  async readEvents(
+    agentId?: string,
+    cursor: number = 0,
+    limit?: number
+  ): Promise<{ events: Record<string, unknown>[]; next_cursor: number }> {
+    const filePath = agentId
+      ? path.join(this.getAgentDir(agentId), "outbox.jsonl")
+      : path.join(this.getSessionDir(), "broadcast.jsonl");
+
+    let content: string;
+    try {
+      content = await fs.readFile(filePath, "utf-8");
+    } catch {
+      return { events: [], next_cursor: cursor };
+    }
+
+    const lines = content.split("\n").filter(line => line.trim() !== "");
+
+    if (cursor >= lines.length) {
+      return { events: [], next_cursor: cursor };
+    }
+
+    const slice = limit !== undefined ? lines.slice(cursor, cursor + limit) : lines.slice(cursor);
+    const events = slice.map(line => JSON.parse(line) as Record<string, unknown>);
+
+    return { events, next_cursor: cursor + events.length };
+  }
+
   async emitEvent(agentId: string, event: Record<string, unknown>, target?: string | string[]): Promise<void> {
     const agentDir = this.getAgentDir(agentId);
     const outboxPath = path.join(agentDir, "outbox.jsonl");

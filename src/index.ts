@@ -27,7 +27,7 @@ const agentManager = new AgentManager();
 const TOOLS = [
   {
     name: "agent_create",
-    description: "Create a new agent in a new tmux pane",
+    description: "Create a new agent in a new tmux pane. After creating agents and enqueuing tasks, use read_events to monitor results.",
     inputSchema: {
       type: "object",
       properties: {
@@ -61,7 +61,7 @@ const TOOLS = [
   },
   {
     name: "task_enqueue",
-    description: "Enqueue a task for an agent",
+    description: "Enqueue a task for an agent. After enqueuing, use read_events to poll for task_completed events.",
     inputSchema: {
       type: "object",
       properties: {
@@ -69,6 +69,18 @@ const TOOLS = [
         task: { type: "object" },
       },
       required: ["agent_id", "task"],
+    },
+  },
+  {
+    name: "read_events",
+    description: "Read sub-agent events from broadcast log or a specific agent's outbox. Non-blocking; use cursor to paginate. Omit agent_id to read the global broadcast log.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        agent_id: { type: "string", description: "Specific agent's outbox; omit for global broadcast" },
+        cursor: { type: "number", description: "Line index to resume from (default 0)" },
+        limit: { type: "number", description: "Maximum number of events to return" },
+      },
     },
   },
   {
@@ -138,6 +150,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const taskId = await agentManager.enqueueTask(agent_id as string, task as Record<string, unknown>);
       return {
         content: [{ type: "text", text: JSON.stringify({ task_id: taskId }) }],
+      };
+    }
+
+    if (name === "read_events") {
+      const { agent_id, cursor, limit } = args as Record<string, unknown>;
+      const result = await agentManager.readEvents(
+        agent_id as string | undefined,
+        (cursor as number) ?? 0,
+        limit as number | undefined
+      );
+      return {
+        content: [{ type: "text", text: JSON.stringify(result) }],
       };
     }
 
