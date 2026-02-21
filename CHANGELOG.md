@@ -1,3 +1,15 @@
+# [1.3.0](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.2.0...v1.3.0) (2026-02-21)
+
+
+### Bug Fixes
+
+* harden createAgent and global test setup against CI filesystem races ([9910972](https://github.com/kkweon/agent-orchestrator-mcp/commit/9910972f45c880491d2ee0eb124f5ac70b9d9178))
+
+
+### Features
+
+* targeted messaging, configurable poll timeout, and default model fix ([fbbef44](https://github.com/kkweon/agent-orchestrator-mcp/commit/fbbef44804d3dc3fa23b012758c04d8529e7eedc))
+
 # [1.2.0](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.1.10...v1.2.0) (2026-02-21)
 
 
