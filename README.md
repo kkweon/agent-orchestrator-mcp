@@ -12,6 +12,55 @@ Designed for [OpenClaw](https://github.com/openclaw/openclaw) and Gemini CLI env
 - **Auto-Inception**: Sub-agents are automatically prompted with their role and protocol upon startup.
 - **Native Gemini CLI**: Sub-agents run actual `gemini` CLI instances with configurable models.
 
+## Architecture
+
+The diagram below shows how the master agent, sub-agents, and the file-based message bus interact.
+
+```mermaid
+graph TD
+    Master["Master Agent\n(Gemini CLI)"]
+
+    subgraph Tmux["tmux: openclaw-agents"]
+        A1["Sub-Agent 1"]
+        A2["Sub-Agent 2"]
+        AN["Sub-Agent N"]
+    end
+
+    subgraph FS["File System — .agents/sessions/&lt;session_id&gt;/"]
+        BC["broadcast.jsonl\n(all events, all agents)"]
+        I1["agent-1/inbox.jsonl"]
+        I2["agent-2/inbox.jsonl"]
+    end
+
+    Master -->|"agent_create (spawns in tmux pane)"| A1
+    Master -->|"agent_create"| A2
+    Master -->|"agent_create"| AN
+
+    Master -->|"task_enqueue"| I1
+    Master -->|"task_enqueue"| I2
+
+    A1 -->|"wait_for_command (poll 500 ms)"| I1
+    A2 -->|"wait_for_command (poll 500 ms)"| I2
+
+    A1 -->|"emit_event"| BC
+    A2 -->|"emit_event"| BC
+    AN -->|"emit_event"| BC
+
+    BC -->|"read_events"| Master
+
+    A1 -->|"emit_event target=agent-2 (peer)"| I2
+    A2 -->|"emit_event target=agent-1 (peer)"| I1
+    AN -->|"emit_event broadcast → all inboxes"| I1
+    AN -->|"emit_event broadcast → all inboxes"| I2
+```
+
+**Communication patterns:**
+
+- **Master → Agent**: `task_enqueue` appends a task to the target agent's `inbox.jsonl`. The agent picks it up on the next `wait_for_command` poll (every 500 ms, cursor-based so no message is lost).
+- **Agent → Master**: `emit_event` appends to the agent's own `outbox.jsonl` and the session-wide `broadcast.jsonl`. The master reads `broadcast.jsonl` via `read_events`.
+- **Agent → Agent (peer)**: `emit_event` with `target=<agent_id>` writes the event directly into the target agent's `inbox.jsonl`, where it is received as a command on the next poll.
+- **Agent → All (broadcast)**: `emit_event` with no target fans the event out to every other agent's `inbox.jsonl` simultaneously.
+
 ## Prerequisites
 
 Before running this server, ensure you have the following installed on your system:
