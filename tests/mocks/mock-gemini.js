@@ -48,6 +48,20 @@ function emitEvent(type, payload, taskId) {
   };
   log(`Emitting event: ${type}`);
   try {
+      if (!fs.existsSync(AGENT_DIR)) {
+          log(`CRITICAL: AGENT_DIR does not exist! ${AGENT_DIR}`);
+          const sessionDir = path.dirname(path.dirname(AGENT_DIR));
+          try {
+            if (fs.existsSync(sessionDir)) {
+                log(`Session contents: ${fs.readdirSync(sessionDir).join(', ')}`);
+            } else {
+                log(`Session dir also missing: ${sessionDir}`);
+            }
+          } catch (e) { log(`Error listing dirs: ${e.message}`); }
+          
+          log("Attempting to recreate AGENT_DIR...");
+          fs.mkdirSync(AGENT_DIR, { recursive: true });
+      }
       fs.appendFileSync(OUTBOX_PATH, JSON.stringify(event) + "\n");
       log(`Successfully wrote to outbox`);
   } catch (e) {
