@@ -20,14 +20,6 @@ export async function getCurrentTmuxContext(): Promise<TmuxPane | null> {
   }
 }
 
-export async function hasSession(sessionName: string): Promise<boolean> {
-  try {
-    await execAsync(`tmux has-session -t ${sessionName}`);
-    return true;
-  } catch (e) {
-    return false;
-  }
-}
 
 export async function createTmuxSession(sessionName: string): Promise<TmuxPane> {
   // Use -d to create detached session.

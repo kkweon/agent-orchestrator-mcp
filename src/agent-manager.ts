@@ -98,11 +98,12 @@ export class AgentManager {
     const executable = params.executablePath || "gemini";
     
     // Construct args
-    let args = params.args || [];
-    const argsStr = args.join(" ");
-    
+    const shellQuote = (s: string): string => `'${s.replace(/'/g, "'\\''")}'`;
+    const args = params.args || [];
+    const argsStr = args.map(shellQuote).join(" ");
+
     let cmd = "";
-    
+
     if (params.executablePath) {
         // If overriding executable (e.g. for testing), do not append model/args/prompt
         // Just run the executable as is.
@@ -132,7 +133,7 @@ Start your loop now.
         await fs.writeFile(inceptionPath, inceptionPrompt);
         
         // Pass prompt as an argument using cat
-        cmd = `${executable} -m ${model} ${argsStr} "$(cat '${inceptionPath}')"`;
+        cmd = `${executable} -m ${shellQuote(model)} ${argsStr} "$(cat '${inceptionPath}')"`;
     }
     
     // We assume 'gemini' is in the PATH.
@@ -170,13 +171,17 @@ Start your loop now.
     const agentDir = this.getAgentDir(id);
     const metaPath = path.join(agentDir, "meta.json");
     try {
-        await fs.access(metaPath);
         const meta = JSON.parse(await fs.readFile(metaPath, "utf-8"));
         const parts = meta.tmuxPaneId.split(":");
-        const paneId = parts[2] || parts[0];
-        await tmux.killPane(paneId);
+        if (parts.length < 3) {
+            console.warn(`Invalid tmuxPaneId format for agent ${id}: ${meta.tmuxPaneId}`);
+        } else {
+            await tmux.killPane(parts[2]);
+        }
     } catch (e) {
-        console.warn(`Could not delete agent ${id} cleanly (meta.json missing or corrupted).`);
+        console.warn(`Could not kill tmux pane for agent ${id}:`, e);
+    } finally {
+        await fs.rm(agentDir, { recursive: true, force: true });
     }
   }
 
@@ -205,29 +210,36 @@ Start your loop now.
     const inboxPath = path.join(agentDir, "inbox.jsonl");
 
     const startTime = Date.now();
-    
+    let currentCursor = cursor;
+
     while (Date.now() - startTime < timeoutMs) {
         try {
             const content = await fs.readFile(inboxPath, "utf-8");
             const lines = content.split("\n").filter(line => line.trim() !== "");
-            
-            if (lines.length > cursor) {
-                const line = lines[cursor];
-                const command = JSON.parse(line);
-                return {
-                    status: "command",
-                    command,
-                    next_cursor: cursor + 1
-                };
+
+            if (lines.length > currentCursor) {
+                const line = lines[currentCursor];
+                try {
+                    const command = JSON.parse(line);
+                    return {
+                        status: "command",
+                        command,
+                        next_cursor: currentCursor + 1
+                    };
+                } catch {
+                    console.warn(`Corrupt line at cursor ${currentCursor} in inbox for agent ${agentId}, skipping`);
+                    currentCursor++;
+                    continue;
+                }
             }
-        } catch (e) {
+        } catch {
             // file might not exist yet
         }
-        
+
         await new Promise(r => setTimeout(r, 500));
     }
 
-    return { status: "timeout", next_cursor: cursor };
+    return { status: "timeout", next_cursor: currentCursor };
   }
 
   async readEvents(
@@ -253,9 +265,16 @@ Start your loop now.
     }
 
     const slice = limit !== undefined ? lines.slice(cursor, cursor + limit) : lines.slice(cursor);
-    const events = slice.map(line => JSON.parse(line) as Record<string, unknown>);
+    const events: Record<string, unknown>[] = [];
+    for (const line of slice) {
+      try {
+        events.push(JSON.parse(line) as Record<string, unknown>);
+      } catch {
+        console.warn(`Corrupt line in events file, skipping: ${line.substring(0, 100)}`);
+      }
+    }
 
-    return { events, next_cursor: cursor + events.length };
+    return { events, next_cursor: cursor + slice.length };
   }
 
   async emitEvent(agentId: string, event: Record<string, unknown>, target?: string | string[]): Promise<void> {

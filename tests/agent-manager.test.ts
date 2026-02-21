@@ -75,7 +75,7 @@ describe('AgentManager', () => {
         // Verify CLI launch command includes prompt injection via file
         expect(mockTmux.sendKeys).toHaveBeenCalledWith(
             expect.stringContaining('test-pane-new'),
-            expect.stringMatching(/gemini -m my-custom-model.*cat.*inception\.txt/)
+            expect.stringMatching(/gemini -m 'my-custom-model'.*cat.*inception\.txt/)
         );
     });
 
@@ -296,6 +296,82 @@ describe('AgentManager', () => {
         const result = await manager.readEvents(undefined, 99);
         expect(result.events).toEqual([]);
         expect(result.next_cursor).toBe(99);
+    });
+
+    // --- deleteAgent tests (#1, #5) ---
+
+    it('deleteAgent removes the agent directory from the filesystem', async () => {
+        const agent = await manager.createAgent({ name: 'delete-me', role: 'tester' });
+        const agentDir = path.join(TEST_ROOT, '.agents', 'sessions', manager.sessionId, 'agents', agent.id);
+
+        // Directory must exist before deletion
+        await expect(fs.access(agentDir)).resolves.toBeUndefined();
+
+        await manager.deleteAgent(agent.id);
+
+        // Directory must be gone after deletion
+        await expect(fs.access(agentDir)).rejects.toThrow();
+    });
+
+    it('deleteAgent with malformed tmuxPaneId still removes directory', async () => {
+        const agentId = 'bad-pane-agent';
+        const agentDir = path.join(TEST_ROOT, '.agents', 'sessions', manager.sessionId, 'agents', agentId);
+        await fs.mkdir(agentDir, { recursive: true });
+        await fs.writeFile(
+            path.join(agentDir, 'meta.json'),
+            JSON.stringify({ id: agentId, tmuxPaneId: 'only:two' })
+        );
+
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+        try {
+            await manager.deleteAgent(agentId);
+        } finally {
+            warnSpy.mockRestore();
+        }
+
+        // Directory must be removed despite bad paneId
+        await expect(fs.access(agentDir)).rejects.toThrow();
+    });
+
+    // --- waitForCommand corrupt line test (#2a) ---
+
+    it('waitForCommand skips corrupt lines and returns the next valid command', async () => {
+        const agentId = 'corrupt-inbox-agent';
+        const agentDir = path.join(TEST_ROOT, '.agents', 'sessions', manager.sessionId, 'agents', agentId);
+        await fs.mkdir(agentDir, { recursive: true });
+        const validTask = { type: 'task', taskId: 'xyz', payload: {}, timestamp: Date.now() };
+        // First line is corrupt JSON, second line is valid
+        await fs.writeFile(
+            path.join(agentDir, 'inbox.jsonl'),
+            'NOT VALID JSON\n' + JSON.stringify(validTask) + '\n'
+        );
+
+        const result = await manager.waitForCommand(agentId, 0, 5000);
+        expect(result.status).toBe('command');
+        if (result.status === 'command') {
+            expect((result.command as any).taskId).toBe('xyz');
+            expect(result.next_cursor).toBe(2);
+        }
+    });
+
+    // --- readEvents corrupt line test (#2b) ---
+
+    it('readEvents tolerates corrupt lines and returns valid events', async () => {
+        const [a1] = await setupTwoAgents();
+        const outboxPath = path.join(TEST_ROOT, '.agents', 'sessions', manager.sessionId, 'agents', a1.id, 'outbox.jsonl');
+        const validEvent = { type: 'good-event', agentId: a1.id, timestamp: Date.now() };
+        // Write one valid event, one corrupt line, then another valid event
+        await fs.writeFile(
+            outboxPath,
+            JSON.stringify(validEvent) + '\n' + 'CORRUPT\n' + JSON.stringify({ ...validEvent, type: 'good-event-2' }) + '\n'
+        );
+
+        const result = await manager.readEvents(a1.id, 0);
+        expect(result.events.length).toBe(2);
+        expect(result.events[0].type).toBe('good-event');
+        expect(result.events[1].type).toBe('good-event-2');
+        // next_cursor advances past all 3 lines (including the corrupt one) so it is never re-read
+        expect(result.next_cursor).toBe(3);
     });
 
     it('emitEvent with array of agent IDs delivers to each listed agent', async () => {
