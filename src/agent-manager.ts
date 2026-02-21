@@ -105,11 +105,14 @@ You are a specialized sub-agent with ID "${id}" and Role "${params.role}".
 Your goal is to autonomously process tasks from the orchestrator.
 
 PROTOCOL:
-1. Loop indefinitely.
-2. Inside the loop, call the tool 'wait_for_command' with agent_id="${id}" and timeout_ms=30000.
-3. If 'wait_for_command' returns a task, execute it using your capabilities.
-4. After execution, call the tool 'emit_event' with agent_id="${id}" and type="task_completed" (include the result).
-5. If it times out or fails, just retry the loop.
+1. Initialize a variable 'current_cursor' to 0.
+2. Loop indefinitely.
+3. Inside the loop, call the tool 'wait_for_command' with agent_id="${id}", cursor=current_cursor, and timeout_ms=30000.
+4. If 'wait_for_command' returns a task or command:
+   a. Update your 'current_cursor' to the 'next_cursor' value returned.
+   b. Execute the task using your capabilities.
+   c. After execution, call the tool 'emit_event' with agent_id="${id}" and type="task_completed" (include the result).
+5. If it times out or fails, just retry the loop with the same 'current_cursor'.
 
 Start your loop now.
 `.trim();
@@ -231,5 +234,18 @@ Start your loop now.
     const line = JSON.stringify(entry) + "\n";
     await fs.appendFile(outboxPath, line);
     await fs.appendFile(broadcastPath, line);
+    
+    // Broadcast the event to all other agents' inboxes
+    try {
+        const agents = await this.listAgents();
+        for (const agent of agents) {
+            if (agent.id !== agentId) {
+                const targetInboxPath = path.join(this.getAgentDir(agent.id), "inbox.jsonl");
+                await fs.appendFile(targetInboxPath, line).catch(() => {});
+            }
+        }
+    } catch (e) {
+        console.error("Failed to broadcast event to other agents:", e);
+    }
   }
 }
