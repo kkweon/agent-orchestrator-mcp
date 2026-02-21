@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.3.0...v1.4.0) (2026-02-21)
+
+
+### Features
+
+* add read_events tool for master agent monitoring ([db38c8d](https://github.com/kkweon/agent-orchestrator-mcp/commit/db38c8d380af69ca28390b4eac2704a62d1b6eb7))
+
 # [1.3.0](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.2.0...v1.3.0) (2026-02-21)
 
 
