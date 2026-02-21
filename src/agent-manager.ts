@@ -136,11 +136,14 @@ Start your loop now.
         const dirs = await fs.readdir(agentsDir);
         const agents: Agent[] = [];
         for (const dir of dirs) {
+            const metaPath = path.join(agentsDir, dir, "meta.json");
             try {
-                const meta = JSON.parse(await fs.readFile(path.join(agentsDir, dir, "meta.json"), "utf-8"));
+                await fs.access(metaPath);
+                const meta = JSON.parse(await fs.readFile(metaPath, "utf-8"));
                 agents.push(meta);
             } catch (e) {
-                console.error(`Failed to load agent meta for ${dir}:`, e);
+                // Skip directories that don't have meta.json yet or are corrupted
+                console.warn(`Skipping agent directory ${dir}: meta.json not found or invalid`);
             }
         }
         return agents;
@@ -152,13 +155,15 @@ Start your loop now.
 
   async deleteAgent(id: string): Promise<void> {
     const agentDir = this.getAgentDir(id);
+    const metaPath = path.join(agentDir, "meta.json");
     try {
-        const meta = JSON.parse(await fs.readFile(path.join(agentDir, "meta.json"), "utf-8"));
+        await fs.access(metaPath);
+        const meta = JSON.parse(await fs.readFile(metaPath, "utf-8"));
         const parts = meta.tmuxPaneId.split(":");
         const paneId = parts[2] || parts[0];
         await tmux.killPane(paneId);
     } catch (e) {
-        console.error(`Failed to delete agent ${id}:`, e);
+        console.warn(`Could not delete agent ${id} cleanly (meta.json missing or corrupted).`);
     }
   }
 
