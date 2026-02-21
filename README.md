@@ -14,52 +14,105 @@ Designed for [OpenClaw](https://github.com/openclaw/openclaw) and Gemini CLI env
 
 ## Architecture
 
-The diagram below shows how the master agent, sub-agents, and the file-based message bus interact.
+### Sessions
+
+Each time a user runs `gemini`, a new **session** is created with a unique ID. Sessions are fully isolated — agents in Session A cannot see or send messages to agents in Session B. A user can run as many sessions as they like in parallel.
 
 ```mermaid
 graph TD
-    Master["Master Agent\n(Gemini CLI)"]
+    User["User"]
 
-    subgraph Tmux["tmux: openclaw-agents"]
-        A1["Sub-Agent 1"]
-        A2["Sub-Agent 2"]
-        AN["Sub-Agent N"]
+    subgraph SessionA["Session A  (.agents/sessions/uuid-a/)"]
+        MA["Master Agent\n(Gemini CLI)"]
+        MA --> SA1["Sub-Agent 1"]
+        MA --> SA2["Sub-Agent 2"]
+        MA --> SAN["Sub-Agent N"]
     end
 
-    subgraph FS["File System — .agents/sessions/&lt;session_id&gt;/"]
-        BC["broadcast.jsonl\n(all events, all agents)"]
-        I1["agent-1/inbox.jsonl"]
-        I2["agent-2/inbox.jsonl"]
+    subgraph SessionB["Session B  (.agents/sessions/uuid-b/)"]
+        MB["Master Agent\n(Gemini CLI)"]
+        MB --> SB1["Sub-Agent 1"]
+        MB --> SB2["Sub-Agent 2"]
     end
 
-    Master -->|"agent_create (spawns in tmux pane)"| A1
-    Master -->|"agent_create"| A2
-    Master -->|"agent_create"| AN
+    User -->|"runs"| MA
+    User -->|"runs separately"| MB
 
-    Master -->|"task_enqueue"| I1
-    Master -->|"task_enqueue"| I2
-
-    A1 -->|"wait_for_command (poll 500 ms)"| I1
-    A2 -->|"wait_for_command (poll 500 ms)"| I2
-
-    A1 -->|"emit_event"| BC
-    A2 -->|"emit_event"| BC
-    AN -->|"emit_event"| BC
-
-    BC -->|"read_events"| Master
-
-    A1 -->|"emit_event target=agent-2 (peer)"| I2
-    A2 -->|"emit_event target=agent-1 (peer)"| I1
-    AN -->|"emit_event broadcast → all inboxes"| I1
-    AN -->|"emit_event broadcast → all inboxes"| I2
+    SessionA -. "fully isolated" .- SessionB
 ```
 
-**Communication patterns:**
+### Inside a Session
 
-- **Master → Agent**: `task_enqueue` appends a task to the target agent's `inbox.jsonl`. The agent picks it up on the next `wait_for_command` poll (every 500 ms, cursor-based so no message is lost).
-- **Agent → Master**: `emit_event` appends to the agent's own `outbox.jsonl` and the session-wide `broadcast.jsonl`. The master reads `broadcast.jsonl` via `read_events`.
-- **Agent → Agent (peer)**: `emit_event` with `target=<agent_id>` writes the event directly into the target agent's `inbox.jsonl`, where it is received as a command on the next poll.
-- **Agent → All (broadcast)**: `emit_event` with no target fans the event out to every other agent's `inbox.jsonl` simultaneously.
+Within a session the master agent spawns sub-agents into tmux panes. All state is persisted under a shared file-system directory so every component — the master, each sub-agent, and the MCP server itself — can read and write without holding any in-process state.
+
+```mermaid
+graph TD
+    Master["Master Agent\n(Gemini CLI + MCP)"]
+
+    subgraph Tmux["tmux session: openclaw-agents"]
+        P1["Pane — Sub-Agent 1\n(Gemini CLI)"]
+        P2["Pane — Sub-Agent 2\n(Gemini CLI)"]
+        PN["Pane — Sub-Agent N\n(Gemini CLI)"]
+    end
+
+    subgraph FS[".agents/sessions/&lt;session_id&gt;/"]
+        BC["broadcast.jsonl\n(all events)"]
+        D1["agents/agent-1/\ninbox.jsonl · outbox.jsonl"]
+        D2["agents/agent-2/\ninbox.jsonl · outbox.jsonl"]
+        DN["agents/agent-N/\ninbox.jsonl · outbox.jsonl"]
+    end
+
+    Master -->|"agent_create → spawns"| P1
+    Master -->|"agent_create → spawns"| P2
+    Master -->|"agent_create → spawns"| PN
+
+    Master -->|"task_enqueue"| D1
+    Master -->|"task_enqueue"| D2
+
+    P1 <-->|"wait_for_command / emit_event"| D1
+    P2 <-->|"wait_for_command / emit_event"| D2
+    PN <-->|"wait_for_command / emit_event"| DN
+
+    D1 -->|"emit_event"| BC
+    D2 -->|"emit_event"| BC
+    DN -->|"emit_event"| BC
+
+    BC -->|"read_events"| Master
+```
+
+### Communication Patterns
+
+All communication is file-based and append-only. There are four routing modes, shown in order below.
+
+```mermaid
+sequenceDiagram
+    participant Master
+    participant Inbox1 as agent-1/inbox.jsonl
+    participant Agent1 as Sub-Agent 1
+    participant Inbox2 as agent-2/inbox.jsonl
+    participant Agent2 as Sub-Agent 2
+    participant BC as broadcast.jsonl
+
+    Note over Master,BC: 1 — Master sends a task to an agent
+    Master->>Inbox1: task_enqueue(payload)
+    Agent1->>Inbox1: wait_for_command (polls every 500 ms)
+    Inbox1-->>Agent1: task + next_cursor
+
+    Note over Master,BC: 2 — Agent reports result to master
+    Agent1->>Agent1: execute task
+    Agent1->>BC: emit_event(result, target="master")
+    BC-->>Master: read_events
+
+    Note over Master,BC: 3 — Agent sends a targeted peer message
+    Agent1->>Inbox2: emit_event(data, target="agent-2")
+    Agent2->>Inbox2: wait_for_command (polls)
+    Inbox2-->>Agent2: event from Agent 1
+
+    Note over Master,BC: 4 — Agent broadcasts to all peers
+    Agent2->>Inbox1: emit_event(data, no target)
+    Agent2->>BC: emit_event(data, no target)
+    Inbox1-->>Agent1: broadcast event
+```
 
 ## Prerequisites
 
