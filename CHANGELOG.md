@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.1.10...v1.2.0) (2026-02-21)
+
+
+### Features
+
+* update agent polling to use cursor and broadcast events ([27133d4](https://github.com/kkweon/agent-orchestrator-mcp/commit/27133d477a0b4ac29572e9adc4024dc4d0957ae3))
+
 ## [1.1.10](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.1.9...v1.1.10) (2026-02-21)
 
 
