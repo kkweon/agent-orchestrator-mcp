@@ -37,24 +37,24 @@ export async function createTmuxSession(sessionName: string): Promise<TmuxPane> 
     await execAsync(`tmux new-session -d -s ${sessionName} -x 800 -y 600`);
     // Give the server a moment to initialize in CI
     await new Promise(r => setTimeout(r, 200));
-  } catch (e: any) {
-    const msg = e.message || "";
-    const stderr = e.stderr || "";
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "";
+    const stderr = (e as { stderr?: string }).stderr || "";
     if (!msg.includes("duplicate session") && !stderr.includes("duplicate session")) {
         throw e;
     }
   }
-  
+
   // Retry display-message a few times if it fails with "no server running"
-  let lastError: any;
+  let lastError: unknown;
   for (let i = 0; i < 3; i++) {
     try {
       const { stdout } = await execAsync(`tmux display-message -t ${sessionName} -p '#{session_id}:#{window_id}:#{pane_id}'`);
       const [sessionId, windowId, paneId] = stdout.trim().split(":");
       return { sessionId, windowId, paneId };
-    } catch (e: any) {
+    } catch (e: unknown) {
       lastError = e;
-      if (e.message.includes("no server running")) {
+      if (e instanceof Error && e.message.includes("no server running")) {
         await new Promise(r => setTimeout(r, 500));
         continue;
       }

@@ -7,6 +7,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { AgentManager } from "./agent-manager.js";
+import { CreateAgentParams } from "./types.js";
 
 const server = new Server(
   {
@@ -110,7 +111,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
   try {
     if (name === "agent_create") {
-      const params = args as any;
+      const params = args as unknown as CreateAgentParams;
       const agent = await agentManager.createAgent(params);
       return {
         content: [{ type: "text", text: JSON.stringify(agent, null, 2) }],
@@ -125,32 +126,32 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 
     if (name === "agent_delete") {
-      const { agent_id } = args as any;
-      await agentManager.deleteAgent(agent_id);
+      const { agent_id } = args as Record<string, unknown>;
+      await agentManager.deleteAgent(agent_id as string);
       return {
         content: [{ type: "text", text: `Agent ${agent_id} deleted` }],
       };
     }
 
     if (name === "task_enqueue") {
-      const { agent_id, task } = args as any;
-      const taskId = await agentManager.enqueueTask(agent_id, task);
+      const { agent_id, task } = args as Record<string, unknown>;
+      const taskId = await agentManager.enqueueTask(agent_id as string, task as Record<string, unknown>);
       return {
         content: [{ type: "text", text: JSON.stringify({ task_id: taskId }) }],
       };
     }
 
     if (name === "wait_for_command") {
-      const { agent_id, timeout_ms, cursor } = args as any;
-      const result = await agentManager.waitForCommand(agent_id, cursor || 0, timeout_ms);
+      const { agent_id, timeout_ms, cursor } = args as Record<string, unknown>;
+      const result = await agentManager.waitForCommand(agent_id as string, (cursor as number) || 0, timeout_ms as number);
       return {
         content: [{ type: "text", text: JSON.stringify(result) }],
       };
     }
 
     if (name === "emit_event") {
-      const { agent_id, event, target } = args as any;
-      await agentManager.emitEvent(agent_id, event, target);
+      const { agent_id, event, target } = args as Record<string, unknown>;
+      await agentManager.emitEvent(agent_id as string, event as Record<string, unknown>, target as string | string[] | undefined);
       return {
         content: [{ type: "text", text: "ok" }],
       };

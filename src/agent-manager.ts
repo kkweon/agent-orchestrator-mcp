@@ -1,5 +1,9 @@
 // src/agent-manager.ts
 import { Agent, Task, CreateAgentParams } from "./types.js";
+
+type WaitForCommandResult =
+  | { status: "command"; command: unknown; next_cursor: number }
+  | { status: "timeout"; next_cursor: number };
 import * as tmux from "./tmux.js";
 import { randomUUID } from "crypto";
 import fs from "fs/promises";
@@ -176,7 +180,7 @@ Start your loop now.
     }
   }
 
-  async enqueueTask(agentId: string, taskPayload: any): Promise<string> {
+  async enqueueTask(agentId: string, taskPayload: Record<string, unknown>): Promise<string> {
     const agentDir = this.getAgentDir(agentId);
     const taskId = randomUUID();
     const taskEvent = {
@@ -196,7 +200,7 @@ Start your loop now.
     return taskId;
   }
 
-  async waitForCommand(agentId: string, cursor: number = 0, timeoutMs: number = DEFAULT_POLL_TIMEOUT_MS): Promise<any> {
+  async waitForCommand(agentId: string, cursor: number = 0, timeoutMs: number = DEFAULT_POLL_TIMEOUT_MS): Promise<WaitForCommandResult> {
     const agentDir = this.getAgentDir(agentId);
     const inboxPath = path.join(agentDir, "inbox.jsonl");
 
@@ -226,7 +230,7 @@ Start your loop now.
     return { status: "timeout", next_cursor: cursor };
   }
 
-  async emitEvent(agentId: string, event: any, target?: string | string[]): Promise<void> {
+  async emitEvent(agentId: string, event: Record<string, unknown>, target?: string | string[]): Promise<void> {
     const agentDir = this.getAgentDir(agentId);
     const outboxPath = path.join(agentDir, "outbox.jsonl");
     const broadcastPath = path.join(this.getSessionDir(), "broadcast.jsonl");

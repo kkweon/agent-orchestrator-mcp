@@ -8,12 +8,12 @@ export interface Agent {
   currentTask?: Task;
   lastEventSeq: number;
   createdAt: number;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export interface Task {
   id: string;
-  payload: Record<string, any>;
+  payload: Record<string, unknown>;
   status: "queued" | "running" | "completed" | "failed" | "canceled";
   createdAt: number;
   startedAt?: number;
@@ -26,7 +26,7 @@ export interface AgentEvent {
   type: string;
   agentId: string;
   taskId?: string;
-  payload?: any;
+  payload?: Record<string, unknown>;
   timestamp: number;
   target?: string | string[];
 }
