@@ -13,6 +13,8 @@ const __dirname = path.dirname(__filename);
 // Helper to get workspace root
 const AGENTS_DIR = ".agents";
 
+const DEFAULT_POLL_TIMEOUT_MS = parseInt(process.env.AGENT_POLL_TIMEOUT_MS || "1800000", 10) || 1800000;
+
 export class AgentManager {
   private workspaceRoot: string;
   public sessionId: string; // Expose sessionId for tests
@@ -84,7 +86,7 @@ export class AgentManager {
     
     // 2. Launch Gemini CLI (or Mock)
     // Model preference: params > env > default
-    const model = params.model || process.env.GEMINI_MODEL || "auto";
+    const model = params.model || process.env.GEMINI_MODEL || "gemini-3-flash-preview";
     const executable = params.executablePath || "gemini";
     
     // Construct args
@@ -106,13 +108,13 @@ Your goal is to autonomously process tasks from the orchestrator.
 
 PROTOCOL:
 1. Initialize a variable 'current_cursor' to 0.
-2. Loop indefinitely.
-3. Inside the loop, call the tool 'wait_for_command' with agent_id="${id}", cursor=current_cursor, and timeout_ms=30000.
+2. Loop indefinitely. CRITICAL: Never exit the loop. Never stop polling.
+3. Inside the loop, call the tool 'wait_for_command' with agent_id="${id}", cursor=current_cursor, and timeout_ms=${DEFAULT_POLL_TIMEOUT_MS}.
 4. If 'wait_for_command' returns a task or command:
    a. Update your 'current_cursor' to the 'next_cursor' value returned.
    b. Execute the task using your capabilities.
-   c. After execution, call the tool 'emit_event' with agent_id="${id}" and type="task_completed" (include the result).
-5. If it times out or fails, just retry the loop with the same 'current_cursor'.
+   c. After execution, call the tool 'emit_event' with agent_id="${id}" and type="task_completed" (include the result). Optionally set target="master" to reply only to the orchestrator, target=<agent_id> to address a specific peer, or omit target to broadcast to all.
+5. If it times out or fails, just retry the loop with the same 'current_cursor'. CRITICAL: Always keep looping — never terminate.
 
 Start your loop now.
 `.trim();
@@ -190,7 +192,7 @@ Start your loop now.
     return taskId;
   }
 
-  async waitForCommand(agentId: string, cursor: number = 0, timeoutMs: number = 10000): Promise<any> {
+  async waitForCommand(agentId: string, cursor: number = 0, timeoutMs: number = DEFAULT_POLL_TIMEOUT_MS): Promise<any> {
     const agentDir = this.getAgentDir(agentId);
     const inboxPath = path.join(agentDir, "inbox.jsonl");
 
@@ -220,23 +222,42 @@ Start your loop now.
     return { status: "timeout", next_cursor: cursor };
   }
 
-  async emitEvent(agentId: string, event: any): Promise<void> {
+  async emitEvent(agentId: string, event: any, target?: string | string[]): Promise<void> {
     const agentDir = this.getAgentDir(agentId);
     const outboxPath = path.join(agentDir, "outbox.jsonl");
     const broadcastPath = path.join(this.getSessionDir(), "broadcast.jsonl");
-    
+
     const entry = {
         ...event,
         agentId,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        ...(target !== undefined ? { target } : {})
     };
-    
+
     const line = JSON.stringify(entry) + "\n";
+    // Always write to sender's outbox and session broadcast
     await fs.appendFile(outboxPath, line);
     await fs.appendFile(broadcastPath, line);
-    
-    // Broadcast the event to all other agents' inboxes
+
+    // Routing: master-only → no peer inbox writes
+    if (target === "master") {
+        return;
+    }
+
     try {
+        // Targeted delivery to specific agent(s)
+        if (target !== undefined && target !== "all") {
+            const targetIds = Array.isArray(target) ? target : [target];
+            for (const tid of targetIds) {
+                if (tid !== agentId) {
+                    const targetInboxPath = path.join(this.getAgentDir(tid), "inbox.jsonl");
+                    await fs.appendFile(targetInboxPath, line).catch(() => {});
+                }
+            }
+            return;
+        }
+
+        // Broadcast (target === "all" or omitted) — fan out to all other agents
         const agents = await this.listAgents();
         for (const agent of agents) {
             if (agent.id !== agentId) {
@@ -245,7 +266,7 @@ Start your loop now.
             }
         }
     } catch (e) {
-        console.error("Failed to broadcast event to other agents:", e);
+        console.error("Failed to deliver event to peer agents:", e);
     }
   }
 }

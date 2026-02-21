@@ -28,6 +28,7 @@ export interface AgentEvent {
   taskId?: string;
   payload?: any;
   timestamp: number;
+  target?: string | string[];
 }
 
 export interface CreateAgentParams {

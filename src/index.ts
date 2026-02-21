@@ -91,6 +91,10 @@ const TOOLS = [
       properties: {
         agent_id: { type: "string" },
         event: { type: "object" },
+        target: {
+          oneOf: [{ type: "string" }, { type: "array", items: { type: "string" } }],
+          description: "Routing: omit or \"all\" for broadcast, \"master\" for master only, agent_id or [agent_ids] for targeted."
+        },
       },
       required: ["agent_id", "event"],
     },
@@ -145,8 +149,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 
     if (name === "emit_event") {
-      const { agent_id, event } = args as any;
-      await agentManager.emitEvent(agent_id, event);
+      const { agent_id, event, target } = args as any;
+      await agentManager.emitEvent(agent_id, event, target);
       return {
         content: [{ type: "text", text: "ok" }],
       };

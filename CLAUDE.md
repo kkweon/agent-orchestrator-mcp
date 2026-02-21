@@ -80,4 +80,5 @@ Tests run with `--runInBand` (serial execution) because they share tmux session 
 |---|---|---|
 | `AGENT_SESSION_ID` | Sub-agents | Identifies which session's data to read/write |
 | `AGENT_ID` | Sub-agents | Agent's own UUID |
-| `GEMINI_MODEL` | Master | Default model if not specified in `agent_create` |
+| `GEMINI_MODEL` | Master | Default model if not specified in `agent_create` (fallback: `gemini-3-flash-preview`) |
+| `AGENT_POLL_TIMEOUT_MS` | Master/Sub-agents | `waitForCommand` timeout in ms (default: `1800000` = 30 min) |
