@@ -53,14 +53,8 @@ export class AgentManager {
   }
 
   async createAgent(params: CreateAgentParams): Promise<Agent> {
-    await this.ensureSessionDir();
     const id = randomUUID();
     const agentDir = this.getAgentDir(id);
-    await fs.mkdir(agentDir, { recursive: true });
-    await fs.mkdir(path.join(agentDir, "artifacts"), { recursive: true });
-
-    // Initialize inbox
-    await fs.writeFile(path.join(agentDir, "inbox.jsonl"), "");
 
     let context = await tmux.getCurrentTmuxContext();
     if (!context) {
@@ -90,10 +84,13 @@ export class AgentManager {
       metadata: {},
     };
 
-    // Re-ensure the agent directory exists before writing meta.json.
-    // The tmux session/pane creation above can take >200ms, during which CI
-    // cleanup from other test suites may have removed the directory tree.
+    // Create the agent directory tree and initialize files.
+    // Done after tmux pane creation to avoid race conditions in CI where
+    // concurrent test cleanups might delete directories during the tmux spawn delay.
+    await this.ensureSessionDir();
     await fs.mkdir(agentDir, { recursive: true });
+    await fs.mkdir(path.join(agentDir, "artifacts"), { recursive: true });
+    await fs.writeFile(path.join(agentDir, "inbox.jsonl"), "");
     await fs.writeFile(path.join(agentDir, "meta.json"), JSON.stringify(agent, null, 2));
 
     // 1. Prepare Environment

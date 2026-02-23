@@ -70,7 +70,7 @@ const TOOLS = [
   },
   {
     name: "send_message",
-    description: "Send a message to one or more agents (or master). After sending, use read_inbox to poll for responses in master's inbox.",
+    description: "Send a message to one or more agents (or master). After sending a task to an agent, you MUST actively poll for their response by calling read_inbox(agent_id='master') repeatedly until they reply.",
     inputSchema: {
       type: "object",
       properties: {
@@ -86,7 +86,7 @@ const TOOLS = [
   },
   {
     name: "read_inbox",
-    description: "Read messages from an inbox. Use agent_id='master' to read the orchestrator's inbox. Non-blocking; use cursor to paginate.",
+    description: "Read messages from an inbox. Use agent_id='master' to read the orchestrator's inbox. IMPORTANT: This is non-blocking. If waiting for an agent's response, you MUST call this tool repeatedly in a loop (using the returned next_cursor) until the expected message arrives.",
     inputSchema: {
       type: "object",
       properties: {
