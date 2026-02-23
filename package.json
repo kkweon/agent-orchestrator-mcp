@@ -14,7 +14,8 @@
   "files": [
     "dist",
     "gemini-extension.json",
-    "README.md"
+    "README.md",
+    "policies"
   ],
   "publishConfig": {
     "access": "public",

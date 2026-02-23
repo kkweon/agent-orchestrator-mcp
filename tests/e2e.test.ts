@@ -60,8 +60,6 @@ describe('E2E with Mock Gemini', () => {
         // Pass WORKSPACE_ROOT as argument to ensure paths align even if CWD differs in tmux
         const mockCommand = `"${nodePath}" "${mockScript}" "${WORKSPACE_ROOT}"`;
 
-        console.log("Spawning Agent with Mock Command:", mockCommand);
-
         const agent = await manager.createAgent({
             name: 'e2e-worker',
             role: 'worker',
@@ -76,7 +74,6 @@ describe('E2E with Mock Gemini', () => {
         const masterInboxPath = path.join(sessionDir, 'master_inbox.jsonl');
 
         // 1. Wait for Agent Ready (mock writes to master_inbox)
-        console.log("Waiting for agent_ready...");
         const ready = await waitForLog(masterInboxPath, '"agent_ready"');
         if (!ready) {
              console.error("Agent Ready Timeout!");
@@ -102,11 +99,9 @@ describe('E2E with Mock Gemini', () => {
         expect(ready).toBe(true);
 
         // 2. Send task message to agent
-        console.log("Sending task message...");
         await manager.sendMessage("master", { instruction: "Say Hello" }, agent.id);
 
         // 3. Wait for Task Completion (mock writes task_completed to master_inbox)
-        console.log("Waiting for task_completed...");
         const completed = await waitForLog(masterInboxPath, '"task_completed"');
         expect(completed).toBe(true);
 

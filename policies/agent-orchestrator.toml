@@ -1,0 +1,35 @@
+[[rule]]
+mcpName = "tmux-agent-orchestrator"
+toolName = "agent_create"
+decision = "allow"
+priority = 200
+
+[[rule]]
+mcpName = "tmux-agent-orchestrator"
+toolName = "send_message"
+decision = "allow"
+priority = 200
+
+[[rule]]
+mcpName = "tmux-agent-orchestrator"
+toolName = "wait_for_command"
+decision = "allow"
+priority = 200
+
+[[rule]]
+mcpName = "tmux-agent-orchestrator"
+toolName = "read_inbox"
+decision = "allow"
+priority = 200
+
+[[rule]]
+mcpName = "tmux-agent-orchestrator"
+toolName = "agent_list"
+decision = "allow"
+priority = 200
+
+[[rule]]
+mcpName = "tmux-agent-orchestrator"
+toolName = "agent_delete"
+decision = "allow"
+priority = 200

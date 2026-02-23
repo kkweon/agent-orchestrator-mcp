@@ -345,6 +345,7 @@ describe('AgentManager', () => {
     });
 
     it('waitForCommand skips malformed JSONL line and advances cursor', async () => {
+        const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
         const agentId = 'malformed-inbox-agent';
         const agentDir = path.join(TEST_ROOT, '.agents', 'sessions', manager.sessionId, 'agents', agentId);
         await fs.mkdir(agentDir, { recursive: true });
@@ -359,6 +360,7 @@ describe('AgentManager', () => {
         if (result.status === 'command') {
             expect((result.command as any).taskId).toBe('valid-one');
         }
+        consoleSpy.mockRestore();
     });
 
     it('deleteAgent removes the agent directory so it no longer appears in listAgents', async () => {
@@ -374,6 +376,7 @@ describe('AgentManager', () => {
     });
 
     it('readInbox skips malformed JSONL lines and advances next_cursor past them', async () => {
+        const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
         const [a1] = await setupTwoAgents();
         const agentDir = path.join(TEST_ROOT, '.agents', 'sessions', manager.sessionId, 'agents', a1.id);
         // Overwrite inbox with one bad line then one good line
@@ -387,6 +390,7 @@ describe('AgentManager', () => {
         // Only the valid message is returned
         expect(result.messages.length).toBe(1);
         expect(result.messages[0].type).toBe('good-msg');
+        consoleSpy.mockRestore();
     });
 
     it('createAgent should throw if params.env contains an invalid key', async () => {

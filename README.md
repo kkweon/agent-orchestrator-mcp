@@ -134,7 +134,19 @@ The easiest way to use this orchestrator is to install it directly to your Gemin
 gemini extension install --auto-update https://github.com/kkweon/agent-orchestrator-mcp
 ```
 
-### 2. Standalone Execution (via npx)
+### 2. Policy Configuration (Recommended)
+
+To allow the master agent to manage sub-agents without constant confirmation prompts, you should install the security policy.
+
+```bash
+mkdir -p ~/.gemini/policies
+# If you cloned the repo:
+cp policies/agent-orchestrator.toml ~/.gemini/policies/
+# Or download directly:
+curl -sSL https://raw.githubusercontent.com/kkweon/agent-orchestrator-mcp/main/policies/agent-orchestrator.toml -o ~/.gemini/policies/agent-orchestrator.toml
+```
+
+### 3. Standalone Execution (via npx)
 
 You can also run the MCP server directly using `npx`, which is useful for testing or manual configuration:
 
