@@ -1,3 +1,10 @@
+## [1.4.3](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.4.2...v1.4.3) (2026-02-23)
+
+
+### Bug Fixes
+
+* trigger release to test gemini extension sync ([f9fe4ff](https://github.com/kkweon/agent-orchestrator-mcp/commit/f9fe4ff670f11a4d7317b9ef79153ebd6ecde813))
+
 ## [1.4.2](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.4.1...v1.4.2) (2026-02-23)
 
 

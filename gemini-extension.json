@@ -1,10 +1,13 @@
 {
   "name": "agent-orchestrator",
-  "version": "1.0.0",
+  "version": "1.4.3",
   "mcpServers": {
     "tmux-agent-orchestrator": {
       "command": "npx",
-      "args": ["-y", "@kkweon/agent-orchestrator-mcp"]
+      "args": [
+        "-y",
+        "@kkweon/agent-orchestrator-mcp"
+      ]
     }
   }
 }
