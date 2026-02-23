@@ -73,9 +73,10 @@ describe('AgentManager', () => {
         );
 
         // Verify CLI launch command includes prompt injection via file
+        // After shell-quoting, executable and model are wrapped in single quotes
         expect(mockTmux.sendKeys).toHaveBeenCalledWith(
             expect.stringContaining('test-pane-new'),
-            expect.stringMatching(/gemini -m my-custom-model.*cat.*inception\.txt/)
+            expect.stringMatching(/'gemini' -m 'my-custom-model'.*cat.*inception\.txt/)
         );
     });
 
@@ -159,7 +160,7 @@ describe('AgentManager', () => {
         expect(result.next_cursor).toBe(1);
     });
 
-    // --- Issue 1: Targeted messaging ---
+    // --- Actor model: sendMessage tests ---
 
     async function setupTwoAgents() {
         const a1 = await manager.createAgent({ name: 'agent-1', role: 'worker' });
@@ -171,48 +172,41 @@ describe('AgentManager', () => {
         return [a1, a2];
     }
 
-    function readInbox(agentId: string): Promise<string> {
+    function readInboxFile(agentId: string): Promise<string> {
         const inboxPath = path.join(TEST_ROOT, '.agents', 'sessions', manager.sessionId, 'agents', agentId, 'inbox.jsonl');
         return fs.readFile(inboxPath, 'utf-8');
     }
 
-    it('emitEvent with no target broadcasts to all peer agents', async () => {
+    function readMasterInbox(): Promise<string> {
+        const masterInboxPath = path.join(TEST_ROOT, '.agents', 'sessions', manager.sessionId, 'master_inbox.jsonl');
+        return fs.readFile(masterInboxPath, 'utf-8');
+    }
+
+    it('sendMessage with target="all" broadcasts to all agent inboxes and master inbox', async () => {
         const [a1, a2] = await setupTwoAgents();
 
-        await manager.emitEvent(a1.id, { type: 'hello' });
+        await manager.sendMessage(a1.id, { type: 'broadcast-all' }, 'all');
 
-        const a2Inbox = await readInbox(a2.id);
-        expect(a2Inbox).toContain('"hello"');
-
-        // Sender's own inbox should not have the event
-        const a1Inbox = await readInbox(a1.id);
-        expect(a1Inbox).toBe('');
-    });
-
-    it('emitEvent with target="all" broadcasts to all peer agents', async () => {
-        const [a1, a2] = await setupTwoAgents();
-
-        await manager.emitEvent(a1.id, { type: 'broadcast-all' }, 'all');
-
-        const a2Inbox = await readInbox(a2.id);
+        const a2Inbox = await readInboxFile(a2.id);
         expect(a2Inbox).toContain('"broadcast-all"');
+
+        const masterInbox = await readMasterInbox();
+        expect(masterInbox).toContain('"broadcast-all"');
     });
 
-    it('emitEvent with target="master" writes to outbox and broadcast but NOT to any peer inbox', async () => {
+    it('sendMessage with target="master" writes only to master_inbox, not to any agent inbox', async () => {
         const [a1, a2] = await setupTwoAgents();
 
-        await manager.emitEvent(a1.id, { type: 'master-reply' }, 'master');
+        await manager.sendMessage(a1.id, { type: 'master-reply' }, 'master');
 
-        const a2Inbox = await readInbox(a2.id);
+        const a2Inbox = await readInboxFile(a2.id);
         expect(a2Inbox).toBe('');
 
-        // Broadcast file should have the event
-        const broadcastPath = path.join(TEST_ROOT, '.agents', 'sessions', manager.sessionId, 'broadcast.jsonl');
-        const broadcast = await fs.readFile(broadcastPath, 'utf-8');
-        expect(broadcast).toContain('"master-reply"');
+        const masterInbox = await readMasterInbox();
+        expect(masterInbox).toContain('"master-reply"');
     });
 
-    it('emitEvent with specific agent_id delivers only to that agent', async () => {
+    it('sendMessage with specific agent_id delivers only to that agent inbox', async () => {
         const [a1, a2] = await setupTwoAgents();
 
         // Create a third agent
@@ -222,83 +216,16 @@ describe('AgentManager', () => {
         mockTmux.sendKeys.mockResolvedValue(undefined);
         const a3 = await manager.createAgent({ name: 'agent-3', role: 'worker' });
 
-        await manager.emitEvent(a1.id, { type: 'targeted' }, a2.id);
+        await manager.sendMessage(a1.id, { type: 'targeted' }, a2.id);
 
-        const a2Inbox = await readInbox(a2.id);
+        const a2Inbox = await readInboxFile(a2.id);
         expect(a2Inbox).toContain('"targeted"');
 
-        const a3Inbox = await readInbox(a3.id);
+        const a3Inbox = await readInboxFile(a3.id);
         expect(a3Inbox).toBe('');
     });
 
-    // --- readEvents tests ---
-
-    it('readEvents returns empty when outbox does not exist', async () => {
-        const result = await manager.readEvents('nonexistent-agent', 0);
-        expect(result.events).toEqual([]);
-        expect(result.next_cursor).toBe(0);
-    });
-
-    it('readEvents reads from broadcast.jsonl when no agent_id provided', async () => {
-        const [a1] = await setupTwoAgents();
-        await manager.emitEvent(a1.id, { type: 'broadcast-event' });
-
-        const result = await manager.readEvents(undefined, 0);
-        expect(result.events.length).toBe(1);
-        expect(result.events[0].type).toBe('broadcast-event');
-        expect(result.next_cursor).toBe(1);
-    });
-
-    it('readEvents reads from specific agent outbox when agent_id provided', async () => {
-        const [a1, a2] = await setupTwoAgents();
-        await manager.emitEvent(a1.id, { type: 'agent1-event' });
-        await manager.emitEvent(a2.id, { type: 'agent2-event' });
-
-        const result = await manager.readEvents(a1.id, 0);
-        expect(result.events.length).toBe(1);
-        expect(result.events[0].type).toBe('agent1-event');
-        expect(result.next_cursor).toBe(1);
-    });
-
-    it('readEvents cursor skips already-read events', async () => {
-        const [a1] = await setupTwoAgents();
-        await manager.emitEvent(a1.id, { type: 'event-one' });
-        await manager.emitEvent(a1.id, { type: 'event-two' });
-        await manager.emitEvent(a1.id, { type: 'event-three' });
-
-        // Read first two via broadcast
-        const first = await manager.readEvents(undefined, 0, 2);
-        expect(first.events.length).toBe(2);
-        expect(first.next_cursor).toBe(2);
-
-        // Resume from cursor=2
-        const second = await manager.readEvents(undefined, 2);
-        expect(second.events.length).toBe(1);
-        expect(second.events[0].type).toBe('event-three');
-        expect(second.next_cursor).toBe(3);
-    });
-
-    it('readEvents limit caps returned events', async () => {
-        const [a1] = await setupTwoAgents();
-        await manager.emitEvent(a1.id, { type: 'e1' });
-        await manager.emitEvent(a1.id, { type: 'e2' });
-        await manager.emitEvent(a1.id, { type: 'e3' });
-
-        const result = await manager.readEvents(undefined, 0, 2);
-        expect(result.events.length).toBe(2);
-        expect(result.next_cursor).toBe(2);
-    });
-
-    it('readEvents cursor past end returns empty with same cursor', async () => {
-        const [a1] = await setupTwoAgents();
-        await manager.emitEvent(a1.id, { type: 'only-event' });
-
-        const result = await manager.readEvents(undefined, 99);
-        expect(result.events).toEqual([]);
-        expect(result.next_cursor).toBe(99);
-    });
-
-    it('emitEvent with array of agent IDs delivers to each listed agent', async () => {
+    it('sendMessage with array of agent IDs delivers to each listed agent', async () => {
         const [a1, a2] = await setupTwoAgents();
 
         jest.clearAllMocks();
@@ -313,15 +240,158 @@ describe('AgentManager', () => {
         mockTmux.sendKeys.mockResolvedValue(undefined);
         const a4 = await manager.createAgent({ name: 'agent-4', role: 'worker' });
 
-        await manager.emitEvent(a1.id, { type: 'multi-target' }, [a2.id, a3.id]);
+        await manager.sendMessage(a1.id, { type: 'multi-target' }, [a2.id, a3.id]);
 
-        const a2Inbox = await readInbox(a2.id);
+        const a2Inbox = await readInboxFile(a2.id);
         expect(a2Inbox).toContain('"multi-target"');
 
-        const a3Inbox = await readInbox(a3.id);
+        const a3Inbox = await readInboxFile(a3.id);
         expect(a3Inbox).toContain('"multi-target"');
 
-        const a4Inbox = await readInbox(a4.id);
+        const a4Inbox = await readInboxFile(a4.id);
         expect(a4Inbox).toBe('');
+    });
+
+    it('sendMessage includes from field in message', async () => {
+        const [a1, a2] = await setupTwoAgents();
+
+        await manager.sendMessage(a1.id, { type: 'hello' }, a2.id);
+
+        const a2Inbox = await readInboxFile(a2.id);
+        const parsed = JSON.parse(a2Inbox.trim());
+        expect(parsed.from).toBe(a1.id);
+        expect(parsed.type).toBe('hello');
+    });
+
+    // --- readInbox tests ---
+
+    it('readInbox returns empty when inbox does not exist', async () => {
+        const result = await manager.readInbox('nonexistent-agent', 0);
+        expect(result.messages).toEqual([]);
+        expect(result.next_cursor).toBe(0);
+    });
+
+    it('readInbox("master") reads from master_inbox.jsonl', async () => {
+        const [a1] = await setupTwoAgents();
+        await manager.sendMessage(a1.id, { type: 'to-master' }, 'master');
+
+        const result = await manager.readInbox('master', 0);
+        expect(result.messages.length).toBe(1);
+        expect(result.messages[0].type).toBe('to-master');
+        expect(result.next_cursor).toBe(1);
+    });
+
+    it('readInbox reads from specific agent inbox when agent_id provided', async () => {
+        const [a1, a2] = await setupTwoAgents();
+        await manager.sendMessage('master', { type: 'task-for-a1' }, a1.id);
+        await manager.sendMessage('master', { type: 'task-for-a2' }, a2.id);
+
+        const result = await manager.readInbox(a1.id, 0);
+        expect(result.messages.length).toBe(1);
+        expect(result.messages[0].type).toBe('task-for-a1');
+        expect(result.next_cursor).toBe(1);
+    });
+
+    it('readInbox cursor skips already-read messages', async () => {
+        const [a1] = await setupTwoAgents();
+        await manager.sendMessage('master', { type: 'msg-one' }, a1.id);
+        await manager.sendMessage('master', { type: 'msg-two' }, a1.id);
+        await manager.sendMessage('master', { type: 'msg-three' }, a1.id);
+
+        // Read first two
+        const first = await manager.readInbox(a1.id, 0, 2);
+        expect(first.messages.length).toBe(2);
+        expect(first.next_cursor).toBe(2);
+
+        // Resume from cursor=2
+        const second = await manager.readInbox(a1.id, 2);
+        expect(second.messages.length).toBe(1);
+        expect(second.messages[0].type).toBe('msg-three');
+        expect(second.next_cursor).toBe(3);
+    });
+
+    it('readInbox limit caps returned messages', async () => {
+        const [a1] = await setupTwoAgents();
+        await manager.sendMessage('master', { type: 'm1' }, a1.id);
+        await manager.sendMessage('master', { type: 'm2' }, a1.id);
+        await manager.sendMessage('master', { type: 'm3' }, a1.id);
+
+        const result = await manager.readInbox(a1.id, 0, 2);
+        expect(result.messages.length).toBe(2);
+        expect(result.next_cursor).toBe(2);
+    });
+
+    it('readInbox cursor past end returns empty with same cursor', async () => {
+        const [a1] = await setupTwoAgents();
+        await manager.sendMessage('master', { type: 'only-msg' }, a1.id);
+
+        const result = await manager.readInbox(a1.id, 99);
+        expect(result.messages).toEqual([]);
+        expect(result.next_cursor).toBe(99);
+    });
+
+    it('sendMessage target="all" does NOT deliver to the sender\'s own inbox', async () => {
+        const [a1, a2] = await setupTwoAgents();
+
+        await manager.sendMessage(a1.id, { type: 'broadcast-check' }, 'all');
+
+        // a2 should receive it
+        const a2Inbox = await readInboxFile(a2.id);
+        expect(a2Inbox).toContain('"broadcast-check"');
+
+        // a1 (the sender) should NOT receive its own broadcast
+        const a1Inbox = await readInboxFile(a1.id);
+        expect(a1Inbox).toBe('');
+    });
+
+    it('waitForCommand skips malformed JSONL line and advances cursor', async () => {
+        const agentId = 'malformed-inbox-agent';
+        const agentDir = path.join(TEST_ROOT, '.agents', 'sessions', manager.sessionId, 'agents', agentId);
+        await fs.mkdir(agentDir, { recursive: true });
+        // Write a malformed line followed by a valid line
+        const validTask = { type: 'task', taskId: 'valid-one', payload: {} };
+        await fs.writeFile(path.join(agentDir, 'inbox.jsonl'),
+            'THIS IS NOT JSON\n' + JSON.stringify(validTask) + '\n');
+
+        // waitForCommand with cursor=0 should skip the bad line and return the valid one
+        const result = await manager.waitForCommand(agentId, 0, 5000);
+        expect(result.status).toBe('command');
+        if (result.status === 'command') {
+            expect((result.command as any).taskId).toBe('valid-one');
+        }
+    });
+
+    it('deleteAgent removes the agent directory so it no longer appears in listAgents', async () => {
+        const [a1] = await setupTwoAgents();
+
+        let agents = await manager.listAgents();
+        expect(agents.some(a => a.id === a1.id)).toBe(true);
+
+        await manager.deleteAgent(a1.id);
+
+        agents = await manager.listAgents();
+        expect(agents.some(a => a.id === a1.id)).toBe(false);
+    });
+
+    it('readInbox skips malformed JSONL lines and advances next_cursor past them', async () => {
+        const [a1] = await setupTwoAgents();
+        const agentDir = path.join(TEST_ROOT, '.agents', 'sessions', manager.sessionId, 'agents', a1.id);
+        // Overwrite inbox with one bad line then one good line
+        const goodMsg = { type: 'good-msg' };
+        await fs.writeFile(path.join(agentDir, 'inbox.jsonl'),
+            'MALFORMED\n' + JSON.stringify(goodMsg) + '\n');
+
+        const result = await manager.readInbox(a1.id, 0);
+        // next_cursor should be 2 (both raw lines consumed)
+        expect(result.next_cursor).toBe(2);
+        // Only the valid message is returned
+        expect(result.messages.length).toBe(1);
+        expect(result.messages[0].type).toBe('good-msg');
+    });
+
+    it('createAgent should throw if params.env contains an invalid key', async () => {
+        await expect(
+            manager.createAgent({ name: 'bad-env', role: 'worker', env: { 'FOO; rm -rf /': 'value' } })
+        ).rejects.toThrow('Invalid env key');
     });
 });

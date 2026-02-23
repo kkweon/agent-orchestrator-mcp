@@ -39,17 +39,17 @@ describe('Session Connection Logic', () => {
         }
     });
 
-    it('should NOT share data if Session ID is different (Current Bug Behavior)', async () => {
+    it('should isolate data by session ID (different managers do not share data)', async () => {
         masterManager = new AgentManager(WORKSPACE_ROOT);
         const agent = await masterManager.createAgent({ name: 'test', role: 'worker', executablePath: 'echo' }); 
         createdAgents.push({ manager: masterManager, id: agent.id });
         
-        await masterManager.enqueueTask(agent.id, { msg: 'hello' });
+        await masterManager.sendMessage("master", { msg: 'hello' }, agent.id);
 
         subManager = new AgentManager(WORKSPACE_ROOT);
 
         const agents = await subManager.listAgents();
-        expect(agents.length).toBe(0); 
+        expect(agents.length).toBe(0);
         expect(subManager.sessionId).not.toBe(masterManager.sessionId);
     });
 
@@ -57,7 +57,7 @@ describe('Session Connection Logic', () => {
         masterManager = new AgentManager(WORKSPACE_ROOT);
         const agent = await masterManager.createAgent({ name: 'test', role: 'worker', executablePath: 'echo' });
         createdAgents.push({ manager: masterManager, id: agent.id });
-        await masterManager.enqueueTask(agent.id, { msg: 'hello' });
+        await masterManager.sendMessage("master", { msg: 'hello' }, agent.id);
 
         process.env.AGENT_SESSION_ID = masterManager.sessionId;
 

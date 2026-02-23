@@ -2,49 +2,34 @@
 import { AgentManager } from "./dist/agent-manager.js";
 import path from "path";
 import fs from "fs/promises";
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 async function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-class FileWatcher {
-    private cursor: number = 0;
-    private path: string;
-
-    constructor(filePath: string) {
-        this.path = filePath;
+// Scans master inbox starting from `cursor`, returning the first message matching
+// agentId (via `from` or `agentId` field) and messageType.
+// Returns the message and the next cursor position so callers can resume efficiently.
+async function waitForMessageFromAgent(
+  manager: any,
+  agentId: string,
+  messageType: string,
+  startCursor: number = 0,
+  timeoutMs: number = 30000
+): Promise<{ msg: any; next_cursor: number }> {
+  let cursor = startCursor;
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const result = await manager.readInbox("master", cursor);
+    for (const msg of result.messages) {
+      if ((msg.from === agentId || msg.agentId === agentId) && msg.type === messageType) {
+        return { msg, next_cursor: result.next_cursor };
+      }
     }
-
-    async waitForEvent(eventType: string, timeoutMs: number = 30000): Promise<any> {
-        const start = Date.now();
-        while (Date.now() - start < timeoutMs) {
-            try {
-                let content = "";
-                try {
-                    content = await fs.readFile(this.path, "utf-8");
-                } catch {
-                    await sleep(500);
-                    continue;
-                }
-                const lines = content.split("\n").filter(l => l.trim());
-                for (let i = this.cursor; i < lines.length; i++) {
-                    try {
-                        const event = JSON.parse(lines[i]);
-                        if (event.type === eventType) {
-                            this.cursor = i + 1; 
-                            return event;
-                        }
-                    } catch (e) {}
-                }
-            } catch (e) {}
-            await sleep(500);
-        }
-        throw new Error(`Timeout waiting for ${eventType} in ${this.path}`);
-    }
+    cursor = result.next_cursor;
+    await sleep(500);
+  }
+  throw new Error(`Timeout waiting for ${messageType} from agent ${agentId}`);
 }
 
 async function main() {
@@ -84,21 +69,17 @@ async function main() {
   console.log(`[Supervisor] Verifier Created: ${verifier.id}`);
 
   try {
-      const sessionDir = path.join(".agents", "sessions", manager.sessionId);
-      const workerOutbox = path.join(sessionDir, "agents", worker.id, "outbox.jsonl");
-      const verifierOutbox = path.join(sessionDir, "agents", verifier.id, "outbox.jsonl");
-
-      const workerWatcher = new FileWatcher(workerOutbox);
-      const verifierWatcher = new FileWatcher(verifierOutbox);
-
-      // Wait for Ready
+      // Wait for Ready (agents send agent_ready to master inbox)
       console.log("\n[Supervisor] Waiting for agents to report ready...");
-      
+
+      let masterCursor = 0;
       try {
-        const workerReady = await workerWatcher.waitForEvent("agent_ready");
+        const { msg: workerReady, next_cursor: c1 } = await waitForMessageFromAgent(manager, worker.id, "agent_ready", masterCursor);
+        masterCursor = c1;
         console.log(` -> Worker is Ready! (Role: ${workerReady.payload.role})`);
-        
-        const verifierReady = await verifierWatcher.waitForEvent("agent_ready");
+
+        const { msg: verifierReady, next_cursor: c2 } = await waitForMessageFromAgent(manager, verifier.id, "agent_ready", masterCursor);
+        masterCursor = c2;
         console.log(` -> Verifier is Ready! (Role: ${verifierReady.payload.role})`);
       } catch (e) {
         console.error("Agents failed to start.");
@@ -107,25 +88,24 @@ async function main() {
 
       // 3. Assign Task to Worker
       console.log("\n[Supervisor] Assigning Task to Worker: 'Generate Hello World code'");
-      const task1Id = await manager.enqueueTask(worker.id, { instruction: "Generate Hello World code" });
-      console.log(` -> Task Enqueued: ${task1Id}`);
+      await manager.sendMessage("master", { instruction: "Generate Hello World code" }, worker.id);
 
       // Wait for Result
       console.log("[Supervisor] Waiting for Worker result...");
-      const workerResult = await workerWatcher.waitForEvent("task_completed");
+      const { msg: workerResult, next_cursor: c3 } = await waitForMessageFromAgent(manager, worker.id, "task_completed", masterCursor);
+      masterCursor = c3;
       const generatedCode = workerResult.payload.output;
       console.log(`\n[Supervisor] Worker Result (Code):\n${generatedCode}`);
 
       // 4. Assign Task to Verifier
       console.log("\n[Supervisor] Assigning Task to Verifier: 'Review Code'");
-      const task2Id = await manager.enqueueTask(verifier.id, { code: generatedCode });
-      console.log(` -> Task Enqueued: ${task2Id}`);
+      await manager.sendMessage("master", { code: generatedCode }, verifier.id);
 
       // Wait for Result
       console.log("[Supervisor] Waiting for Verifier result...");
-      const verifierResult = await verifierWatcher.waitForEvent("task_completed");
+      const { msg: verifierResult } = await waitForMessageFromAgent(manager, verifier.id, "task_completed", masterCursor);
       console.log(`\n[Supervisor] Verifier Result: ${verifierResult.payload.status}`);
-      console.log(`[Supervisor] Comments: ${verifierResult.payload.comments}`);
+      console.log(`[Supervisor] Output: ${verifierResult.payload.output}`);
   } finally {
       // 5. Cleanup
       console.log("\n[Supervisor] Mission Accomplished. Cleaning up...");

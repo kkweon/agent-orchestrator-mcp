@@ -5,7 +5,6 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { z } from "zod";
 import { AgentManager } from "./agent-manager.js";
 import { CreateAgentParams } from "./types.js";
 
@@ -17,17 +16,27 @@ const server = new Server(
   {
     capabilities: {
       tools: {},
-      resources: {},
     },
   }
 );
+
+/**
+ * Validates that an agent_id is either the special value "master" or a well-formed UUID.
+ * Throws if the value does not match, preventing path traversal via directory names.
+ */
+function validateAgentId(id: string): void {
+  if (id === "master") return;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    throw new Error(`Invalid agent_id: "${id}"`);
+  }
+}
 
 const agentManager = new AgentManager();
 
 const TOOLS = [
   {
     name: "agent_create",
-    description: "Create a new agent in a new tmux pane. After creating agents and enqueuing tasks, use read_events to monitor results.",
+    description: "Create a new agent in a new tmux pane. After creating agents and sending messages, use read_inbox to monitor results.",
     inputSchema: {
       type: "object",
       properties: {
@@ -60,32 +69,37 @@ const TOOLS = [
     },
   },
   {
-    name: "task_enqueue",
-    description: "Enqueue a task for an agent. After enqueuing, use read_events to poll for task_completed events.",
+    name: "send_message",
+    description: "Send a message to one or more agents (or master). After sending, use read_inbox to poll for responses in master's inbox.",
     inputSchema: {
       type: "object",
       properties: {
-        agent_id: { type: "string" },
-        task: { type: "object" },
+        agent_id: { type: "string", description: "Sender's agent ID (use 'master' if orchestrator is sending)" },
+        message: { type: "object", description: "Message payload to send" },
+        target: {
+          oneOf: [{ type: "string" }, { type: "array", items: { type: "string" } }],
+          description: "Routing: 'master' to send to orchestrator, 'all' to broadcast, an agent_id or [agent_ids] for targeted delivery."
+        },
       },
-      required: ["agent_id", "task"],
+      required: ["agent_id", "message", "target"],
     },
   },
   {
-    name: "read_events",
-    description: "Read sub-agent events from broadcast log or a specific agent's outbox. Non-blocking; use cursor to paginate. Omit agent_id to read the global broadcast log.",
+    name: "read_inbox",
+    description: "Read messages from an inbox. Use agent_id='master' to read the orchestrator's inbox. Non-blocking; use cursor to paginate.",
     inputSchema: {
       type: "object",
       properties: {
-        agent_id: { type: "string", description: "Specific agent's outbox; omit for global broadcast" },
+        agent_id: { type: "string", description: "Agent ID to read inbox for, or 'master' for the orchestrator inbox" },
         cursor: { type: "number", description: "Line index to resume from (default 0)" },
-        limit: { type: "number", description: "Maximum number of events to return" },
+        limit: { type: "number", description: "Maximum number of messages to return" },
       },
+      required: ["agent_id"],
     },
   },
   {
     name: "wait_for_command",
-    description: "Internal: Agent polls for new commands",
+    description: "Internal: Agent polls for new commands from its inbox",
     inputSchema: {
       type: "object",
       properties: {
@@ -93,25 +107,9 @@ const TOOLS = [
         timeout_ms: { type: "number" },
         cursor: { type: "number" },
       },
-      required: ["agent_id", "timeout_ms"],
+      required: ["agent_id", "timeout_ms", "cursor"],
     },
   },
-  {
-    name: "emit_event",
-    description: "Internal: Agent emits an event (result/log)",
-    inputSchema: {
-      type: "object",
-      properties: {
-        agent_id: { type: "string" },
-        event: { type: "object" },
-        target: {
-          oneOf: [{ type: "string" }, { type: "array", items: { type: "string" } }],
-          description: "Routing: omit or \"all\" for broadcast, \"master\" for master only, agent_id or [agent_ids] for targeted."
-        },
-      },
-      required: ["agent_id", "event"],
-    },
-  }
 ];
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
@@ -139,24 +137,36 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
     if (name === "agent_delete") {
       const { agent_id } = args as Record<string, unknown>;
+      validateAgentId(agent_id as string);
       await agentManager.deleteAgent(agent_id as string);
       return {
         content: [{ type: "text", text: `Agent ${agent_id} deleted` }],
       };
     }
 
-    if (name === "task_enqueue") {
-      const { agent_id, task } = args as Record<string, unknown>;
-      const taskId = await agentManager.enqueueTask(agent_id as string, task as Record<string, unknown>);
+    if (name === "send_message") {
+      const { agent_id, message, target } = args as Record<string, unknown>;
+      validateAgentId(agent_id as string);
+      if (Array.isArray(target)) {
+        (target as string[]).forEach(t => validateAgentId(t));
+      } else if (typeof target === "string" && target !== "all") {
+        validateAgentId(target);
+      }
+      await agentManager.sendMessage(
+        agent_id as string,
+        message as Record<string, unknown>,
+        target as string | string[]
+      );
       return {
-        content: [{ type: "text", text: JSON.stringify({ task_id: taskId }) }],
+        content: [{ type: "text", text: "ok" }],
       };
     }
 
-    if (name === "read_events") {
+    if (name === "read_inbox") {
       const { agent_id, cursor, limit } = args as Record<string, unknown>;
-      const result = await agentManager.readEvents(
-        agent_id as string | undefined,
+      validateAgentId(agent_id as string);
+      const result = await agentManager.readInbox(
+        agent_id as string,
         (cursor as number) ?? 0,
         limit as number | undefined
       );
@@ -167,17 +177,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
     if (name === "wait_for_command") {
       const { agent_id, timeout_ms, cursor } = args as Record<string, unknown>;
-      const result = await agentManager.waitForCommand(agent_id as string, (cursor as number) || 0, timeout_ms as number);
+      validateAgentId(agent_id as string);
+      const result = await agentManager.waitForCommand(agent_id as string, (cursor as number) ?? 0, timeout_ms as number);
       return {
         content: [{ type: "text", text: JSON.stringify(result) }],
-      };
-    }
-
-    if (name === "emit_event") {
-      const { agent_id, event, target } = args as Record<string, unknown>;
-      await agentManager.emitEvent(agent_id as string, event as Record<string, unknown>, target as string | string[] | undefined);
-      return {
-        content: [{ type: "text", text: "ok" }],
       };
     }
 
