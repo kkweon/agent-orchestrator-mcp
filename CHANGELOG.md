@@ -1,3 +1,10 @@
+## [1.4.2](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.4.1...v1.4.2) (2026-02-23)
+
+
+### Bug Fixes
+
+* **ci:** use npm test in GitHub Actions to run tests sequentially ([17e34f3](https://github.com/kkweon/agent-orchestrator-mcp/commit/17e34f34aaa393a7fc7a8a6a268aaa539db569b5))
+
 ## [1.4.1](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.4.0...v1.4.1) (2026-02-23)
 
 
