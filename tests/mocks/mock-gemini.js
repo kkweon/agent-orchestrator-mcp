@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 // NOTE: Use passed argument for workspace root if available, else CWD
-const WORKSPACE_ROOT = process.argv[2] || process.cwd(); 
+const WORKSPACE_ROOT = process.argv[2] || process.cwd();
 
 // Debug logging
 const debugPath = path.join(WORKSPACE_ROOT, 'mock_debug.log');
@@ -29,43 +29,36 @@ if (!AGENT_ID || !SESSION_ID) {
     process.exit(1);
 }
 
-// Ensure .agents directory exists in CWD
-const AGENT_DIR = path.join(WORKSPACE_ROOT, ".agents", "sessions", SESSION_ID, "agents", AGENT_ID);
+// Paths
+const SESSION_DIR = path.join(WORKSPACE_ROOT, ".agents", "sessions", SESSION_ID);
+const AGENT_DIR = path.join(SESSION_DIR, "agents", AGENT_ID);
 const INBOX_PATH = path.join(AGENT_DIR, "inbox.jsonl");
-const OUTBOX_PATH = path.join(AGENT_DIR, "outbox.jsonl");
+const MASTER_INBOX_PATH = path.join(SESSION_DIR, "master_inbox.jsonl");
 
 log(`AGENT_DIR: ${AGENT_DIR}`);
-log(`OUTBOX_PATH: ${OUTBOX_PATH}`);
+log(`MASTER_INBOX_PATH: ${MASTER_INBOX_PATH}`);
 
-// Helper to append to outbox
-function emitEvent(type, payload, taskId) {
+// Helper to send a message to master inbox (simulates send_message with target="master")
+function sendToMaster(type, payload, taskId) {
   const event = {
     type,
     agentId: AGENT_ID,
+    from: AGENT_ID,
     taskId,
     payload,
     timestamp: Date.now(),
   };
-  log(`Emitting event: ${type}`);
+  log(`Sending to master: ${type}`);
   try {
-      if (!fs.existsSync(AGENT_DIR)) {
-          log(`CRITICAL: AGENT_DIR does not exist! ${AGENT_DIR}`);
-          const sessionDir = path.dirname(path.dirname(AGENT_DIR));
-          try {
-            if (fs.existsSync(sessionDir)) {
-                log(`Session contents: ${fs.readdirSync(sessionDir).join(', ')}`);
-            } else {
-                log(`Session dir also missing: ${sessionDir}`);
-            }
-          } catch (e) { log(`Error listing dirs: ${e.message}`); }
-          
-          log("Attempting to recreate AGENT_DIR...");
-          fs.mkdirSync(AGENT_DIR, { recursive: true });
+      if (!fs.existsSync(SESSION_DIR)) {
+          log(`CRITICAL: SESSION_DIR does not exist! ${SESSION_DIR}`);
+          log("Attempting to recreate SESSION_DIR...");
+          fs.mkdirSync(SESSION_DIR, { recursive: true });
       }
-      fs.appendFileSync(OUTBOX_PATH, JSON.stringify(event) + "\n");
-      log(`Successfully wrote to outbox`);
+      fs.appendFileSync(MASTER_INBOX_PATH, JSON.stringify(event) + "\n");
+      log(`Successfully wrote to master_inbox`);
   } catch (e) {
-      log(`ERROR writing to outbox: ${e.message}`);
+      log(`ERROR writing to master_inbox: ${e.message}`);
   }
 }
 
@@ -73,12 +66,12 @@ function emitEvent(type, payload, taskId) {
 log("Scheduling initial ready event...");
 setTimeout(() => {
     log("Firing initial ready event now.");
-    emitEvent("agent_ready", { role: "mock", model: "fake-v1" });
+    sendToMaster("agent_ready", { role: "mock", model: "fake-v1" });
 }, 1000);
 
 let cursor = 0;
 
-// Loop
+// Loop — poll inbox for messages from master
 setInterval(() => {
     try {
         if (fs.existsSync(INBOX_PATH)) {
@@ -89,21 +82,20 @@ setInterval(() => {
                 log(`Found ${lines.length - cursor} new lines in inbox.`);
                 for (let i = cursor; i < lines.length; i++) {
                     try {
-                        const taskEvent = JSON.parse(lines[i]);
-                        log(`Processing task: ${taskEvent.taskId}`);
-                        if (taskEvent.type === "task") {
-                            // Acknowledge
-                            emitEvent("task_started", { taskId: taskEvent.taskId }, taskEvent.taskId);
-                            
-                            // Complete
-                            setTimeout(() => {
-                                emitEvent("task_completed", { 
-                                    status: "success", 
-                                    output: `Processed: ${taskEvent.payload.instruction || 'unknown'}`,
-                                    mocked: true 
-                                }, taskEvent.taskId);
-                            }, 500);
-                        }
+                        const msg = JSON.parse(lines[i]);
+                        log(`Processing message: ${JSON.stringify(msg)}`);
+
+                        // Acknowledge receipt
+                        sendToMaster("task_started", { taskId: msg.taskId }, msg.taskId);
+
+                        // Process and complete
+                        setTimeout(() => {
+                            sendToMaster("task_completed", {
+                                status: "success",
+                                output: `Processed: ${msg.instruction || msg.payload?.instruction || 'unknown'}`,
+                                mocked: true
+                            }, msg.taskId);
+                        }, 500);
                     } catch (e) {
                         log(`Error processing line ${i}: ${e.message}`);
                     }

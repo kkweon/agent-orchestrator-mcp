@@ -30,9 +30,9 @@ This is an MCP (Model Context Protocol) server that lets a master Gemini CLI age
 
 ### Tool surface
 
-**Master-agent tools**: `agent_create`, `agent_list`, `agent_delete`, `task_enqueue`
+**Master-agent tools**: `agent_create`, `agent_list`, `agent_delete`, `send_message`, `read_inbox`
 
-**Sub-agent tools** (called by spawned agents): `wait_for_command`, `emit_event`
+**Sub-agent tools** (called by spawned agents): `wait_for_command`, `send_message`
 
 ### Session isolation & file layout
 

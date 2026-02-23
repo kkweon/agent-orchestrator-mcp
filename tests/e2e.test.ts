@@ -36,7 +36,7 @@ describe('E2E with Mock Gemini', () => {
         // Kill session to ensure clean state and avoid pane exhaustion
         await tmux.killSession('openclaw-agents');
         createdAgents = [];
-        
+
         const mod = await import('../src/agent-manager.js');
         AgentManager = mod.AgentManager;
         manager = new AgentManager(WORKSPACE_ROOT);
@@ -71,13 +71,13 @@ describe('E2E with Mock Gemini', () => {
         createdAgents.push(agent.id);
 
         expect(agent).toBeDefined();
-        
-        const sessionDir = path.join(WORKSPACE_ROOT, '.agents', 'sessions', manager.sessionId);
-        const outboxPath = path.join(sessionDir, 'agents', agent.id, 'outbox.jsonl');
 
-        // 1. Wait for Agent Ready
+        const sessionDir = path.join(WORKSPACE_ROOT, '.agents', 'sessions', manager.sessionId);
+        const masterInboxPath = path.join(sessionDir, 'master_inbox.jsonl');
+
+        // 1. Wait for Agent Ready (mock writes to master_inbox)
         console.log("Waiting for agent_ready...");
-        const ready = await waitForLog(outboxPath, '"agent_ready"');
+        const ready = await waitForLog(masterInboxPath, '"agent_ready"');
         if (!ready) {
              console.error("Agent Ready Timeout!");
              try {
@@ -86,7 +86,7 @@ describe('E2E with Mock Gemini', () => {
              } catch (e) {
                  console.error("Mock Debug Log not found!");
              }
-             
+
              // Capture tmux pane output to see why it failed
              if (agent && agent.tmuxPaneId) {
                 try {
@@ -101,16 +101,16 @@ describe('E2E with Mock Gemini', () => {
         }
         expect(ready).toBe(true);
 
-        // 2. Enqueue Task
-        console.log("Enqueuing Task...");
-        const taskId = await manager.enqueueTask(agent.id, { instruction: "Say Hello" });
+        // 2. Send task message to agent
+        console.log("Sending task message...");
+        await manager.sendMessage("master", { instruction: "Say Hello" }, agent.id);
 
-        // 3. Wait for Task Completion
+        // 3. Wait for Task Completion (mock writes task_completed to master_inbox)
         console.log("Waiting for task_completed...");
-        const completed = await waitForLog(outboxPath, '"task_completed"');
+        const completed = await waitForLog(masterInboxPath, '"task_completed"');
         expect(completed).toBe(true);
-        
-        const content = await fs.readFile(outboxPath, 'utf-8');
+
+        const content = await fs.readFile(masterInboxPath, 'utf-8');
         expect(content).toContain('Say Hello');
         expect(content).toContain('mocked');
     }, 30000);
