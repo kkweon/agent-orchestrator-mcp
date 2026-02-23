@@ -69,15 +69,15 @@ graph TD
     Master -->|"send_message"| D1
     Master -->|"send_message"| D2
 
-    P1 <-->|"wait_for_command / send_message"| D1
-    P2 <-->|"wait_for_command / send_message"| D2
-    PN <-->|"wait_for_command / send_message"| DN
+    P1 <-->|"wait_for_command"| D1
+    P2 <-->|"wait_for_command"| D2
+    PN <-->|"wait_for_command"| DN
 
-    D1 -->|"send_message(target=master)"| MI
-    D2 -->|"send_message(target=master)"| MI
-    DN -->|"send_message(target=master)"| MI
+    P1 -->|"send_message(target=master)"| MI
+    P2 -->|"send_message(target=master)"| MI
+    PN -->|"send_message(target=master)"| MI
 
-    MI -->|"read_inbox"| Master
+    Master -->|"read_inbox"| MI
 ```
 
 ### Communication Patterns
@@ -101,7 +101,8 @@ sequenceDiagram
     Note over Master,Agent2: 2 — Agent reports result to master
     Agent1->>Agent1: execute task
     Agent1->>MI: send_message(result, target="master")
-    MI-->>Master: read_inbox
+    Master->>MI: read_inbox(cursor)
+    MI-->>Master: messages
 
     Note over Master,Agent2: 3 — Agent sends a targeted peer message
     Agent1->>Inbox2: send_message(data, target="agent-2")
@@ -111,6 +112,7 @@ sequenceDiagram
     Note over Master,Agent2: 4 — Agent broadcasts to all peers
     Agent2->>Inbox1: send_message(data, target="all")
     Agent2->>MI: send_message(data, target="all")
+    Agent1->>Inbox1: wait_for_command (polls)
     Inbox1-->>Agent1: broadcast event
 ```
 
