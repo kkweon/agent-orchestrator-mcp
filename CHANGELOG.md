@@ -1,3 +1,10 @@
+## [1.4.1](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.4.0...v1.4.1) (2026-02-23)
+
+
+### Bug Fixes
+
+* **mcp:** clarify polling instructions in tool descriptions for Master agent ([#4](https://github.com/kkweon/agent-orchestrator-mcp/issues/4)) ([933688f](https://github.com/kkweon/agent-orchestrator-mcp/commit/933688fe5c0881a00c1681074f1b98991bb0b367))
+
 # [1.4.0](https://github.com/kkweon/agent-orchestrator-mcp/compare/v1.3.0...v1.4.0) (2026-02-21)
 
 
