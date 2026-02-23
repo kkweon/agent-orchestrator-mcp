@@ -8,7 +8,7 @@ Designed for [OpenClaw](https://github.com/openclaw/openclaw) and Gemini CLI env
 
 - **Tmux-based Isolation**: Each sub-agent runs in its own dedicated tmux pane.
 - **Session Isolation**: Complete separation of workspaces and event logs per execution session.
-- **Bi-directional Communication**: Master agent can send tasks; Sub-agents emit events (logs, results).
+- **Actor Model Communication**: Decentralized, asynchronous messaging using per-agent and master inboxes.
 - **Auto-Inception**: Sub-agents are automatically prompted with their role and protocol upon startup.
 - **Native Gemini CLI**: Sub-agents run actual `gemini` CLI instances with configurable models.
 
@@ -43,7 +43,7 @@ graph TD
 
 ### Inside a Session
 
-Within a session the master agent spawns sub-agents into tmux panes. All state is persisted under a shared file-system directory so every component — the master, each sub-agent, and the MCP server itself — can read and write without holding any in-process state.
+Within a session the master agent spawns sub-agents into tmux panes. All communication is routed through append-only JSONL mailbox files. Every component — the master, each sub-agent, and the MCP server itself — can read and write without holding any in-process state.
 
 ```mermaid
 graph TD
@@ -56,28 +56,28 @@ graph TD
     end
 
     subgraph FS[".agents/sessions/&lt;session_id&gt;/"]
-        BC["broadcast.jsonl<br/>(all events)"]
-        D1["agents/agent-1/<br/>inbox.jsonl · outbox.jsonl"]
-        D2["agents/agent-2/<br/>inbox.jsonl · outbox.jsonl"]
-        DN["agents/agent-N/<br/>inbox.jsonl · outbox.jsonl"]
+        MI["master_inbox.jsonl<br/>(messages for Master)"]
+        D1["agents/agent-1/<br/>inbox.jsonl"]
+        D2["agents/agent-2/<br/>inbox.jsonl"]
+        DN["agents/agent-N/<br/>inbox.jsonl"]
     end
 
     Master -->|"agent_create → spawns"| P1
     Master -->|"agent_create → spawns"| P2
     Master -->|"agent_create → spawns"| PN
 
-    Master -->|"task_enqueue"| D1
-    Master -->|"task_enqueue"| D2
+    Master -->|"send_message"| D1
+    Master -->|"send_message"| D2
 
-    P1 <-->|"wait_for_command / emit_event"| D1
-    P2 <-->|"wait_for_command / emit_event"| D2
-    PN <-->|"wait_for_command / emit_event"| DN
+    P1 <-->|"wait_for_command / send_message"| D1
+    P2 <-->|"wait_for_command / send_message"| D2
+    PN <-->|"wait_for_command / send_message"| DN
 
-    D1 -->|"emit_event"| BC
-    D2 -->|"emit_event"| BC
-    DN -->|"emit_event"| BC
+    D1 -->|"send_message(target=master)"| MI
+    D2 -->|"send_message(target=master)"| MI
+    DN -->|"send_message(target=master)"| MI
 
-    BC -->|"read_events"| Master
+    MI -->|"read_inbox"| Master
 ```
 
 ### Communication Patterns
@@ -87,30 +87,30 @@ All communication is file-based and append-only. There are four routing modes, s
 ```mermaid
 sequenceDiagram
     participant Master
+    participant MI as master_inbox.jsonl
     participant Inbox1 as agent-1/inbox.jsonl
     participant Agent1 as Sub-Agent 1
     participant Inbox2 as agent-2/inbox.jsonl
     participant Agent2 as Sub-Agent 2
-    participant BC as broadcast.jsonl
 
-    Note over Master,BC: 1 — Master sends a task to an agent
-    Master->>Inbox1: task_enqueue(payload)
+    Note over Master,Agent2: 1 — Master sends a task to an agent
+    Master->>Inbox1: send_message(payload, target="agent-1")
     Agent1->>Inbox1: wait_for_command (polls every 500 ms)
     Inbox1-->>Agent1: task + next_cursor
 
-    Note over Master,BC: 2 — Agent reports result to master
+    Note over Master,Agent2: 2 — Agent reports result to master
     Agent1->>Agent1: execute task
-    Agent1->>BC: emit_event(result, target="master")
-    BC-->>Master: read_events
+    Agent1->>MI: send_message(result, target="master")
+    MI-->>Master: read_inbox
 
-    Note over Master,BC: 3 — Agent sends a targeted peer message
-    Agent1->>Inbox2: emit_event(data, target="agent-2")
+    Note over Master,Agent2: 3 — Agent sends a targeted peer message
+    Agent1->>Inbox2: send_message(data, target="agent-2")
     Agent2->>Inbox2: wait_for_command (polls)
     Inbox2-->>Agent2: event from Agent 1
 
-    Note over Master,BC: 4 — Agent broadcasts to all peers
-    Agent2->>Inbox1: emit_event(data, no target)
-    Agent2->>BC: emit_event(data, no target)
+    Note over Master,Agent2: 4 — Agent broadcasts to all peers
+    Agent2->>Inbox1: send_message(data, target="all")
+    Agent2->>MI: send_message(data, target="all")
     Inbox1-->>Agent1: broadcast event
 ```
 
@@ -165,7 +165,8 @@ Use these tools to manage your workforce.
 |-----------|-------------|------------|
 | **`agent_create`** | Spawns a new sub-agent in a split tmux pane. It automatically injects the runner loop and inception prompt. | `name` (string): Human-readable name<br>`role` (string): Specific role (e.g., "coder", "reviewer")<br>`model` (string, optional): Specific Gemini model to use |
 | **`agent_list`** | Lists all active agents in the current session. | *(None)* |
-| **`task_enqueue`** | Sends a task payload to a specific agent's inbox. | `agent_id` (string): Target agent's UUID<br>`task` (object): Arbitrary JSON payload (instructions) |
+| **`send_message`** | Sends a message to one or more agents. Use target="all" to broadcast. | `agent_id` (string): Sender's agent ID (use 'master' if orchestrator is sending)<br>`message` (object): Arbitrary JSON payload<br>`target` (string/array): 'all', 'master', or agent UUID(s) |
+| **`read_inbox`** | Non-blocking read of messages from an inbox. Use agent_id='master' for orchestrator. | `agent_id` (string): Target inbox ('master' or agent UUID)<br>`cursor` (number, optional): Line index to resume from |
 | **`agent_delete`** | Terminates a sub-agent and kills its tmux pane. | `agent_id` (string): Target agent's UUID |
 
 ### Internal Protocol Tools (For Sub-Agents)
@@ -173,7 +174,7 @@ Use these tools to manage your workforce.
 *These tools are used automatically by the sub-agents to communicate with the orchestrator. You rarely need to call them manually.*
 
 - **`wait_for_command`**: Long-polling endpoint for sub-agents to fetch new tasks from their `inbox`.
-- **`emit_event`**: Endpoint for sub-agents to report logs, progress, and results (`task_completed`) to the `outbox` and session broadcast.
+- **`send_message`**: Endpoint for sub-agents to report logs, progress, and results (with `target="master"`) or communicate with peers.
 
 ## Development
 
